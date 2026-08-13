@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 const menuItems = [
+	{ to: "/download", label: "下载", en: "Download" },
 	{ to: "/ip", label: "IP 查询", en: "IP Lookup" },
 	{ to: "/image-host", label: "图床", en: "Image Host" },
+	{ to: "/game", label: "游戏", en: "Game" },
 	{ to: "/more", label: "更多", en: "More" },
 	{ to: "/settings", label: "设置", en: "Settings" },
 ];
@@ -14,15 +16,15 @@ export function NavMenu() {
 	return (
 		<header className="sticky top-0 z-50">
 			<nav className="mx-auto flex h-12 max-w-6xl items-center justify-between px-6">
-				{/* 回到主页（圆环 + 樂 logo） */}
+				{/* 回到主页（双圆圈 logo） */}
 				<Link
 					to="/"
 					aria-label="回到主页"
-					className="relative flex h-[54px] w-[54px] items-center justify-center text-gray-900 transition-opacity hover:opacity-70"
+					className="relative flex h-9 w-9 items-center justify-center text-gray-900 transition-opacity hover:opacity-70"
 				>
 					<svg
-						width="48"
-						height="48"
+						width="36"
+						height="36"
 						viewBox="0 0 100 100"
 						fill="none"
 						aria-hidden="true"
@@ -30,14 +32,18 @@ export function NavMenu() {
 						<circle
 							cx="50"
 							cy="50"
-							r="30"
+							r="34"
+							stroke="currentColor"
+							strokeWidth="5"
+						/>
+						<circle
+							cx="50"
+							cy="50"
+							r="21"
 							stroke="currentColor"
 							strokeWidth="5"
 						/>
 					</svg>
-					<span className="absolute inset-0 flex items-center justify-center text-[19.5px] font-medium leading-none">
-						樂
-					</span>
 				</Link>
 
 				{/* 汉堡菜单按钮 + 下拉菜单（右上角） */}
