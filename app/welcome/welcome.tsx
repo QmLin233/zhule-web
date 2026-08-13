@@ -2,7 +2,7 @@ import { NavMenu } from "../components/NavMenu";
 
 export function Welcome() {
 	return (
-		<div className="flex min-h-screen flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+		<div className="flex min-h-screen flex-col bg-cream text-gray-900 dark:bg-gray-950 dark:text-gray-100">
 			<NavMenu />
 
 			{/* 主体：居中大标题 */}

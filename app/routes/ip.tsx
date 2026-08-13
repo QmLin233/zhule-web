@@ -7,7 +7,7 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Ip() {
 	return (
-		<div className="flex min-h-screen flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+		<div className="flex min-h-screen flex-col bg-cream text-gray-900 dark:bg-gray-950 dark:text-gray-100">
 			<NavMenu />
 			<main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
 				<h1 className="text-4xl font-semibold tracking-tight">IP 查询</h1>
