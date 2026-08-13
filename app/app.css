@@ -1,5 +1,8 @@
 @import "tailwindcss" source(".");
 
+/* 基于 class 的暗色模式：html.dark 生效 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
 	--font-sans:
 		"Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
@@ -8,5 +11,5 @@
 
 html,
 body {
-	@apply bg-white text-gray-900;
+	@apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
 }

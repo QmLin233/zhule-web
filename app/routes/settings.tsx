@@ -7,11 +7,11 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Settings() {
 	return (
-		<div className="flex min-h-screen flex-col bg-white text-gray-900">
+		<div className="flex min-h-screen flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
 			<NavMenu />
 			<main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
 				<h1 className="text-4xl font-semibold tracking-tight">设置</h1>
-				<p className="mt-4 text-gray-400">功能开发中，敬请期待</p>
+				<p className="mt-4 text-gray-400 dark:text-gray-500">功能开发中，敬请期待</p>
 			</main>
 		</div>
 	);
