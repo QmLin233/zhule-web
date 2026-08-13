@@ -3,9 +3,9 @@ import { Link } from "react-router";
 
 const menuItems = [
 	{ to: "/download", label: "下载", en: "Download" },
+	{ to: "/game", label: "游戏", en: "Game" },
 	{ to: "/ip", label: "IP 查询", en: "IP Lookup" },
 	{ to: "/image-host", label: "图床", en: "Image Host" },
-	{ to: "/game", label: "游戏", en: "Game" },
 	{ to: "/more", label: "更多", en: "More" },
 	{ to: "/settings", label: "设置", en: "Settings" },
 ];
