@@ -105,7 +105,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		return Response.json(info);
 	}
 	return Response.json(
-		{ error: "任意 IP 查询功能尚未启用，请稍后再试" },
+		{ error: "任意 IP 查询功能尚未启用，请稍后再试 · Arbitrary IP lookup coming soon" },
 		{ status: 501 },
 	);
 }

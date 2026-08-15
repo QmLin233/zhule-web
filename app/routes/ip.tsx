@@ -97,7 +97,7 @@ function Loading() {
 	return (
 		<div className="flex items-center gap-3 py-6 text-sm text-gray-400 dark:text-gray-500">
 			<span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-500 dark:border-gray-700 dark:border-t-gray-300" />
-			正在获取…
+			正在获取… · Loading…
 		</div>
 	);
 }
@@ -126,7 +126,7 @@ export default function Ip() {
 				}
 			} catch (e) {
 				if (!cancelled) {
-					setMyError(e instanceof Error ? e.message : "获取失败");
+					setMyError(e instanceof Error ? e.message : "获取失败 · Load failed");
 					setMyState("error");
 				}
 			}
@@ -150,7 +150,7 @@ export default function Ip() {
 			setResult(data);
 			setState("success");
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "查询失败");
+			setError(e instanceof Error ? e.message : "查询失败 · Lookup failed");
 			setState("error");
 		}
 	}
@@ -161,13 +161,21 @@ export default function Ip() {
 			<main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
 				<header className="text-center">
 					<h1 className="text-4xl font-semibold tracking-tight">IP 查询</h1>
+					<p className="mt-2 text-sm tracking-[0.3em] text-gray-400 dark:text-gray-500">
+						IP LOOKUP
+					</p>
 				</header>
 
 				<div className="mt-10 space-y-6">
 					{/* 我的 IP */}
 					<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
 						<div className="flex items-center justify-between">
-							<h2 className="text-lg font-medium tracking-tight">我的 IP</h2>
+							<h2 className="text-lg font-medium tracking-tight">
+								我的 IP{" "}
+								<span className="ml-1 text-sm font-normal text-gray-400 dark:text-gray-500">
+									My IP
+								</span>
+							</h2>
 							<SourceBadge source={myIp?.source} />
 						</div>
 
@@ -189,17 +197,18 @@ export default function Ip() {
 								)}
 								{!myIp.ip && (
 									<p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-										本地开发环境暂无 Cloudflare 边缘数据，部署后自动显示真实 IP
+										本地开发环境暂无边缘数据，部署后自动显示真实 IP · Dev mode has no
+										Cloudflare edge data, deploy to see your real IP
 									</p>
 								)}
 								<div className="mt-5 grid gap-x-8 sm:grid-cols-2">
-									<InfoRow label="国家 / 地区" value={countryName(myIp)} />
-									<InfoRow label="省 / 州" value={myIp.region ?? myIp.regionCode} />
-									<InfoRow label="城市" value={myIp.city} />
-									<InfoRow label="运营商" value={myIp.isp ?? myIp.org} />
+									<InfoRow label="国家 / 地区 · Country / Region" value={countryName(myIp)} />
+									<InfoRow label="省 / 州 · Province / State" value={myIp.region ?? myIp.regionCode} />
+									<InfoRow label="城市 · City" value={myIp.city} />
+									<InfoRow label="运营商 · ISP" value={myIp.isp ?? myIp.org} />
 									<InfoRow label="ASN" value={myIp.asn} />
-									<InfoRow label="时区" value={myIp.timezone} />
-									<InfoRow label="经纬度" value={coordinateText(myIp)} />
+									<InfoRow label="时区 · Timezone" value={myIp.timezone} />
+									<InfoRow label="经纬度 · Coordinates" value={coordinateText(myIp)} />
 								</div>
 							</div>
 						)}
@@ -207,14 +216,18 @@ export default function Ip() {
 
 					{/* 查询任意 IP */}
 					<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
-						<h2 className="text-lg font-medium tracking-tight">查询任意 IP</h2>
+						<h2 className="text-lg font-medium tracking-tight">
+							查询任意 IP{" "}
+							<span className="ml-1 text-sm font-normal text-gray-400 dark:text-gray-500">
+								Lookup IP
+							</span>
+						</h2>
 
 						<form onSubmit={handleSubmit} className="mt-4 flex gap-2">
 							<input
 								type="text"
 								value={input}
 								onChange={(e) => setInput(e.target.value)}
-								placeholder="输入 IP 地址，例如 8.8.8.8"
 								autoComplete="off"
 								spellCheck={false}
 								className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-gray-500 dark:focus:ring-gray-700"
@@ -224,16 +237,11 @@ export default function Ip() {
 								disabled={state === "loading" || !input.trim()}
 								className="shrink-0 rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 							>
-								查询
+								查询 Lookup
 							</button>
 						</form>
 
 						<div className="mt-5">
-							{state === "idle" && (
-								<p className="py-4 text-sm text-gray-400 dark:text-gray-500">
-									输入一个 IP 地址开始查询
-								</p>
-							)}
 							{state === "loading" && <Loading />}
 							{state === "error" && (
 								<p className="py-4 text-sm text-red-500 dark:text-red-400">{error}</p>
@@ -247,21 +255,21 @@ export default function Ip() {
 										</p>
 									)}
 									<div className="mt-4 grid gap-x-8 sm:grid-cols-2">
-										<InfoRow label="国家 / 地区" value={countryName(result)} />
-										<InfoRow label="省 / 州" value={result.region ?? result.regionCode} />
-										<InfoRow label="城市" value={result.city} />
-										<InfoRow label="运营商" value={result.isp ?? result.org} />
+										<InfoRow label="国家 / 地区 · Country / Region" value={countryName(result)} />
+										<InfoRow label="省 / 州 · Province / State" value={result.region ?? result.regionCode} />
+										<InfoRow label="城市 · City" value={result.city} />
+										<InfoRow label="运营商 · ISP" value={result.isp ?? result.org} />
 										<InfoRow label="ASN" value={result.asn} />
-										<InfoRow label="时区" value={result.timezone} />
-										<InfoRow label="经纬度" value={coordinateText(result)} />
+										<InfoRow label="时区 · Timezone" value={result.timezone} />
+										<InfoRow label="经纬度 · Coordinates" value={coordinateText(result)} />
 										{result.proxy !== undefined && (
-											<InfoRow label="代理 / VPN" value={result.proxy ? "是" : "否"} />
+											<InfoRow label="代理 / VPN · Proxy / VPN" value={result.proxy ? "是" : "否"} />
 										)}
 										{result.hosting !== undefined && (
-											<InfoRow label="数据中心" value={result.hosting ? "是" : "否"} />
+											<InfoRow label="数据中心 · Datacenter" value={result.hosting ? "是" : "否"} />
 										)}
 										{result.mobile !== undefined && (
-											<InfoRow label="移动网络" value={result.mobile ? "是" : "否"} />
+											<InfoRow label="移动网络 · Mobile" value={result.mobile ? "是" : "否"} />
 										)}
 									</div>
 								</div>
