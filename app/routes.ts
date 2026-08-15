@@ -4,6 +4,7 @@ export default [
 	index("routes/home.tsx"),
 	route("download", "routes/download.tsx"),
 	route("ip", "routes/ip.tsx"),
+	route("api/ip", "routes/api.ip.ts"),
 	route("image-host", "routes/image-host.tsx"),
 	route("game", "routes/game.tsx"),
 	route("more", "routes/more.tsx"),
