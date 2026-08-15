@@ -51,7 +51,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 };
 
 const SOURCE_NAMES: Record<string, string> = {
-	cf: "Cloudflare 边缘",
+	cf: "Cloudflare",
 	"ip-api": "ip-api.com",
 	ipinfo: "ipinfo.io",
 	geo: "GeoIP 数据库",
@@ -68,18 +68,15 @@ function locationText(info: IpInfo): string | undefined {
 	return parts.length ? parts.join(" · ") : undefined;
 }
 
-function coordinateText(info: IpInfo): string | undefined {
-	if (info.latitude == null || info.longitude == null) return undefined;
-	return `${info.latitude.toFixed(4)}, ${info.longitude.toFixed(4)}`;
-}
-
-function InfoRow({ label, value }: { label: string; value?: string | number }) {
+function InfoBlock({ label, value }: { label: string; value?: string | number }) {
+	// 后端没有该字段数据时，整个板块不渲染（不显示 "—" 占位）
+	if (value === undefined || value === null || value === "") return null;
 	return (
-		<div className="flex items-center justify-between gap-4 border-b border-gray-100 py-2.5 text-sm last:border-0 dark:border-gray-800">
-			<span className="shrink-0 text-gray-400 dark:text-gray-500">{label}</span>
-			<span className="text-right font-medium text-gray-800 dark:text-gray-100">
-				{value !== undefined && value !== null && value !== "" ? value : "—"}
-			</span>
+		<div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-gray-800/40">
+			<p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
+			<p className="mt-1 break-words text-sm font-medium text-gray-800 dark:text-gray-100">
+				{value}
+			</p>
 		</div>
 	);
 }
@@ -171,9 +168,9 @@ export default function Ip() {
 					<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
 						<div className="flex items-center justify-between">
 							<h2 className="text-lg font-medium tracking-tight">
-								我的 IP{" "}
+								本机 IP{" "}
 								<span className="ml-1 text-sm font-normal text-gray-400 dark:text-gray-500">
-									My IP
+									Address
 								</span>
 							</h2>
 							<SourceBadge source={myIp?.source} />
@@ -188,28 +185,24 @@ export default function Ip() {
 						{myState === "success" && myIp && (
 							<div className="mt-4">
 								<p className="break-all text-3xl font-semibold tracking-tight sm:text-4xl">
-									{myIp.ip || "—"}
+									{myIp.ip || "None"}
 								</p>
-								{locationText(myIp) && (
+								{/* 无真实 IP（如本地开发）时，地理位置数据无意义，不显示 */}
+								{myIp.ip && locationText(myIp) && (
 									<p className="mt-2 text-sm text-gray-400 dark:text-gray-500">
 										{locationText(myIp)}
 									</p>
 								)}
-								{!myIp.ip && (
-									<p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-										本地开发环境暂无边缘数据，部署后自动显示真实 IP · Dev mode has no
-										Cloudflare edge data, deploy to see your real IP
-									</p>
+								{myIp.ip && (
+									<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+										<InfoBlock label="国家 / 地区 · Country / Region" value={countryName(myIp)} />
+										<InfoBlock label="省 / 州 · Province / State" value={myIp.region ?? myIp.regionCode} />
+										<InfoBlock label="城市 · City" value={myIp.city} />
+										<InfoBlock label="运营商 · ISP" value={myIp.isp ?? myIp.org} />
+										<InfoBlock label="ASN" value={myIp.asn} />
+										<InfoBlock label="时区 · Timezone" value={myIp.timezone} />
+									</div>
 								)}
-								<div className="mt-5 grid gap-x-8 sm:grid-cols-2">
-									<InfoRow label="国家 / 地区 · Country / Region" value={countryName(myIp)} />
-									<InfoRow label="省 / 州 · Province / State" value={myIp.region ?? myIp.regionCode} />
-									<InfoRow label="城市 · City" value={myIp.city} />
-									<InfoRow label="运营商 · ISP" value={myIp.isp ?? myIp.org} />
-									<InfoRow label="ASN" value={myIp.asn} />
-									<InfoRow label="时区 · Timezone" value={myIp.timezone} />
-									<InfoRow label="经纬度 · Coordinates" value={coordinateText(myIp)} />
-								</div>
 							</div>
 						)}
 					</section>
@@ -254,22 +247,21 @@ export default function Ip() {
 											{locationText(result)}
 										</p>
 									)}
-									<div className="mt-4 grid gap-x-8 sm:grid-cols-2">
-										<InfoRow label="国家 / 地区 · Country / Region" value={countryName(result)} />
-										<InfoRow label="省 / 州 · Province / State" value={result.region ?? result.regionCode} />
-										<InfoRow label="城市 · City" value={result.city} />
-										<InfoRow label="运营商 · ISP" value={result.isp ?? result.org} />
-										<InfoRow label="ASN" value={result.asn} />
-										<InfoRow label="时区 · Timezone" value={result.timezone} />
-										<InfoRow label="经纬度 · Coordinates" value={coordinateText(result)} />
+									<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+										<InfoBlock label="国家 / 地区 · Country / Region" value={countryName(result)} />
+										<InfoBlock label="省 / 州 · Province / State" value={result.region ?? result.regionCode} />
+										<InfoBlock label="城市 · City" value={result.city} />
+										<InfoBlock label="运营商 · ISP" value={result.isp ?? result.org} />
+										<InfoBlock label="ASN" value={result.asn} />
+										<InfoBlock label="时区 · Timezone" value={result.timezone} />
 										{result.proxy !== undefined && (
-											<InfoRow label="代理 / VPN · Proxy / VPN" value={result.proxy ? "是" : "否"} />
+											<InfoBlock label="代理 / VPN · Proxy / VPN" value={result.proxy ? "是" : "否"} />
 										)}
 										{result.hosting !== undefined && (
-											<InfoRow label="数据中心 · Datacenter" value={result.hosting ? "是" : "否"} />
+											<InfoBlock label="数据中心 · Datacenter" value={result.hosting ? "是" : "否"} />
 										)}
 										{result.mobile !== undefined && (
-											<InfoRow label="移动网络 · Mobile" value={result.mobile ? "是" : "否"} />
+											<InfoBlock label="移动网络 · Mobile" value={result.mobile ? "是" : "否"} />
 										)}
 									</div>
 								</div>

@@ -7,6 +7,10 @@ import type { IpInfo } from "~/lib/ip";
 // 当前只启用「方案 1」：Cloudflare 边缘数据（request.cf + CF-IPCountry 头），
 // 仅能解析「访问者自己」的 IP，零成本、零第三方依赖。
 //
+// 注意：免费套餐下 request.cf 只提供 country / asn / colo / continent 等，
+// 省/州、城市、运营商、经纬度、时区等字段在免费版不填充，属正常现象；
+// 需要这些字段时再启用方案 2（第三方 API）或方案 3（GeoLite2 + D1）。
+//
 // 扩展点：
 //   1. ARBITRARY_IP_SOURCE —— 切换「任意 IP 查询」的数据源
 //   2. lookupArbitraryIp() —— 实现对应数据源（方案 2 / 方案 3）
@@ -41,14 +45,23 @@ function getClientIp(request: Request): string {
 	);
 }
 
+/** 从 CF-Ray 头提取边缘节点代码（免费套餐也可用），形如 "7f2a...-HKG" → "HKG" */
+function coloFromRay(ray: string | null): string | undefined {
+	if (!ray) return undefined;
+	const i = ray.lastIndexOf("-");
+	return i >= 0 ? ray.slice(i + 1) : undefined;
+}
+
 /**
  * 方案 1：用 Cloudflare 边缘数据构建「我的 IP」信息。
- * request.cf 与 CF-IPCountry 头均由 Cloudflare 边缘填充，零成本。
+ * cf 来自入口 fetch 捕获的原始 request.cf（见 workers/app.ts 的 context.cf），
+ * country 兜底用 CF-IPCountry 头，colo 兜底用 CF-Ray 头。
  */
 function fromCloudflareEdge(
 	ip: string,
 	cf: CfGeo | undefined,
 	countryHeader: string | null,
+	ray: string | null,
 ): IpInfo {
 	return {
 		ip,
@@ -62,7 +75,7 @@ function fromCloudflareEdge(
 		timezone: cf?.timezone,
 		isp: cf?.asOrganization,
 		asn: cf?.asn ? `AS${cf.asn}` : undefined,
-		colo: cf?.colo,
+		colo: cf?.colo ?? coloFromRay(ray),
 		source: "cf",
 	};
 }
@@ -86,16 +99,22 @@ async function lookupArbitraryIp(_ip: string): Promise<IpInfo | null> {
 	}
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
 	const url = new URL(request.url);
 	const query = url.searchParams.get("ip")?.trim();
-	const cf = (request as unknown as { cf?: CfGeo }).cf;
+	// 原始 request.cf 在入口 fetch 已捕获并注入 context（见 workers/app.ts）
+	const cf = context.cf as CfGeo | undefined;
 
 	// 我的 IP：方案 1，CF 边缘数据
 	if (!query) {
 		const ip = getClientIp(request);
 		return Response.json(
-			fromCloudflareEdge(ip, cf, request.headers.get("CF-IPCountry")),
+			fromCloudflareEdge(
+				ip,
+				cf,
+				request.headers.get("CF-IPCountry"),
+				request.headers.get("CF-Ray"),
+			),
 		);
 	}
 
