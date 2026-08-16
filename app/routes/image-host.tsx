@@ -65,7 +65,8 @@ export default function ImageHost() {
 											src={img.url}
 											alt={img.name}
 											loading="lazy"
-											className="h-full w-full object-cover"
+											decoding="async"
+											className="h-full w-full object-cover image-rendering-auto"
 										/>
 									</div>
 									<div className="p-3">
@@ -74,13 +75,21 @@ export default function ImageHost() {
 											{formatSize(img.size)}
 											{img.uploadedAt ? ` · ${img.uploadedAt}` : ""}
 										</p>
-										<button
-											type="button"
-											onClick={() => copyLink(img.url, img.name)}
-											className="mt-2 w-full rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
-										>
-											{copied === img.name ? "已复制 · Copied ✓" : "复制链接 · Copy Link"}
-										</button>
+										<div className="mt-2 grid grid-cols-2 gap-2">
+											<a
+												href={`/api/download?key=${encodeURIComponent(img.key)}`}
+												className="rounded-lg bg-gray-900 px-3 py-1.5 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+											>
+												下载 · Download
+											</a>
+											<button
+												type="button"
+												onClick={() => copyLink(img.url, img.name)}
+												className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+											>
+												{copied === img.name ? "已复制 ✓" : "复制链接 · Copy"}
+											</button>
+										</div>
 									</div>
 								</div>
 							))}
