@@ -123,13 +123,7 @@ const CITY_CN: Record<string, string> = {
 	"Cape Town": "开普敦", Johannesburg: "约翰内斯堡", Cairo: "开罗",
 };
 
-// 英文格式：City, Region, Country
-function locationEn(info: IpInfo): string | undefined {
-	const parts = [info.city, info.region, info.country].filter(Boolean);
-	return parts.length ? parts.join(", ") : undefined;
-}
-
-// 中文格式：国家 + 省/州 + 城市（仅拼接有中文映射的部分，不混语言）
+// 中文格式：国家 + 省/州 + 城市（仅拼接有中文映射的部分）
 function locationZh(info: IpInfo): string | undefined {
 	const parts = [
 		info.countryCode ? COUNTRY_NAMES[info.countryCode] : undefined,
@@ -139,12 +133,9 @@ function locationZh(info: IpInfo): string | undefined {
 	return parts.length ? parts.join("") : undefined;
 }
 
-// 双语显示：中文一行 + 英文一行（换行分隔，不串行）
+// Location 直接显示中文（不翻译、不做英文行）
 function locationText(info: IpInfo): string | undefined {
-	const zh = locationZh(info);
-	const en = locationEn(info);
-	if (zh) return en ? `${zh}\n${en}` : zh;
-	return en;
+	return locationZh(info);
 }
 
 function coordinateText(info: IpInfo): string | undefined {

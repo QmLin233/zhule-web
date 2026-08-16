@@ -1,5 +1,5 @@
 import type { Route } from "./+types/api.ip";
-import { COUNTRY_EN, type IpInfo } from "~/lib/ip";
+import type { IpInfo } from "~/lib/ip";
 
 // ============================================================
 // IP 查询后端（/api/ip）
@@ -11,8 +11,8 @@ import { COUNTRY_EN, type IpInfo } from "~/lib/ip";
 //   3. Cloudflare 边缘数据（request.cf）—— 最后兜底
 //  任意 IP 查询：由 ARBITRARY_IP_SOURCE 控制（当前 none，功能已取消）
 //
-// 中英文分离：ipchaxun 返回中文国家名，这里统一用 COUNTRY_EN 转成英文
-// 存到 country（英文行用），中文行由前端用 countryCode 映射，保证不串语言。
+// 说明：Location 直接使用 ipchaxun 返回的国家名（中文，不翻译），
+// 前端中文行用 countryCode 映射 + region/city 拼接，不做英文行。
 // ============================================================
 
 /** 任意 IP 查询当前的数据源（扩展点 1：切换方案 2 / 3 的开关；当前取消该功能，置为 none） */
@@ -223,8 +223,8 @@ async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 	const info: IpInfo = {
 		ip: (data.ip as string) ?? ip,
 		query: ip,
-		// 国家名统一转英文（英文行用），中文行由前端用 countryCode 映射
-		country: (country.code ? COUNTRY_EN[country.code] : undefined) ?? country.name,
+		// 直接使用 ipchaxun 返回的国家名（中文，不翻译）
+		country: country.name,
 		countryCode: country.code,
 		// 尽力读取 ipchaxun 可能返回的省市/时区/经纬度/运营商等字段
 		region: data.region as string | undefined,
