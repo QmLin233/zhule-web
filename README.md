@@ -1,6 +1,6 @@
-# 逐乐（zhule-web）
+# 逐乐(zhule-web)
 
-个人网站，基于 [React Router 7](https://reactrouter.com/)（framework 模式，SSR）+ [Cloudflare Workers](https://developers.cloudflare.com/workers/) + Tailwind CSS v4。
+基于 [React Router 7](https://reactrouter.com/)（framework 模式，SSR）+ [Cloudflare Workers](https://developers.cloudflare.com/workers/) + Tailwind CSS v4。
 
 ## 功能
 

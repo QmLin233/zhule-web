@@ -1,22 +1,18 @@
 import type { Route } from "./+types/api.ip";
-import type { IpInfo } from "~/lib/ip";
+import { COUNTRY_EN, type IpInfo } from "~/lib/ip";
 
 // ============================================================
 // IP 查询后端（/api/ip）
 //
-// 数据源（优先级从高到低）：
-//  本机 IP：
-//   1. ipchaxun.com.cn（需 API Key，国家/ASN/IP 类型较准）
-//   2. ip-api.com 补充缺失字段（城市/省份/时区/经纬度等）
-//   3. 回退 Cloudflare 边缘数据（request.cf + CF-IPCountry 头）
+// 数据源（本机 IP，优先级从高到低）：
+//   1. ipchaxun.com.cn（需 API Key）—— 优先，重试 3 次；
+//      成功时只用它一家（不混合调用其他服务）
+//   2. ip-api.com —— ipchaxun 彻底不可用时的整体回退
+//   3. Cloudflare 边缘数据（request.cf）—— 最后兜底
 //  任意 IP 查询：由 ARBITRARY_IP_SOURCE 控制（当前 none，功能已取消）
 //
-// 扩展点：
-//   1. lookupByIpchaxun() —— ipchaxun.com.cn 查询实现
-//   2. lookupByIpApi() —— ip-api.com 查询实现（补充/兜底共用）
-//   3. enrichWithIpApi() —— 用 ip-api 补充 ipchaxun 缺失字段
-//   4. lookupArbitraryIp() —— 任意 IP 查询入口（方案 3 d1-geolite2 待接入）
-// 前端页面与数据契约见 app/lib/ip.ts，接入新方案时无需改动。
+// 中英文分离：ipchaxun 返回中文国家名，这里统一用 COUNTRY_EN 转成英文
+// 存到 country（英文行用），中文行由前端用 countryCode 映射，保证不串语言。
 // ============================================================
 
 /** 任意 IP 查询当前的数据源（扩展点 1：切换方案 2 / 3 的开关；当前取消该功能，置为 none） */
@@ -187,8 +183,8 @@ async function lookupByIpApi(ip: string): Promise<IpInfo> {
  * 用 ipchaxun.com.cn 查询 IP（需 X-API-Key 认证，支持 IPv4 / IPv6）。
  *
  * 接口：GET https://api.ipchaxun.com.cn/api/v1/query?ip=<ip>
- * 返回主要字段：country（中文名+代码）、as（number/name）、type、proxy_score 等。
- * 不返回城市/时区/经纬度等字段，缺失部分由 lookupByIpApi 补充。
+ * 防御性读取所有可能字段（country/city/region/isp/org/as/timezone/lat/lon）。
+ * 国家名统一转成英文存入 country（英文行用），中文行由前端用 countryCode 映射。
  */
 async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 	if (!isValidIp(ip)) {
@@ -206,7 +202,7 @@ async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 		`https://api.ipchaxun.com.cn/api/v1/query?ip=${encodeURIComponent(ip)}`,
 		{
 			headers: { "X-API-Key": apiKey },
-			signal: AbortSignal.timeout(5000),
+			signal: AbortSignal.timeout(3000),
 		},
 	);
 
@@ -227,10 +223,19 @@ async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 	const info: IpInfo = {
 		ip: (data.ip as string) ?? ip,
 		query: ip,
-		country: country.name,
+		// 国家名统一转英文（英文行用），中文行由前端用 countryCode 映射
+		country: (country.code ? COUNTRY_EN[country.code] : undefined) ?? country.name,
 		countryCode: country.code,
+		// 尽力读取 ipchaxun 可能返回的省市/时区/经纬度/运营商等字段
+		region: data.region as string | undefined,
+		regionCode: data.regionCode as string | undefined,
+		city: data.city as string | undefined,
+		latitude: typeof data.lat === "number" ? data.lat : undefined,
+		longitude: typeof data.lon === "number" ? data.lon : undefined,
+		timezone: data.timezone as string | undefined,
+		isp: (data.isp as string) ?? as.name,
+		org: data.org as string | undefined,
 		asn: typeof as.number === "number" ? `AS${as.number}` : undefined,
-		isp: as.name,
 		// proxy_score 越高越可能是代理/数据中心
 		proxy: typeof data.proxy_score === "number" && data.proxy_score >= 80,
 		source: "ipchaxun",
@@ -239,32 +244,6 @@ async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 	// 写入缓存（24h），减少第三方调用
 	await writeIpCache(cacheKey, info);
 	return info;
-}
-
-/**
- * 用 ip-api.com 补充 ipchaxun 缺失的字段（城市/省份/时区/经纬度/组织等）。
- * region/city 优先用 ip-api（英文名），与前端 REGION_CN/CITY_CN 映射兼容。
- */
-async function enrichWithIpApi(base: IpInfo, ip: string): Promise<IpInfo> {
-	const extra = await lookupByIpApi(ip);
-	return {
-		...base,
-		// 属地国家保留 ipchaxun（用户指定），城市/省份由 ip-api 补充
-		country: base.country ?? extra.country,
-		countryCode: base.countryCode ?? extra.countryCode,
-		region: extra.region ?? base.region,
-		regionCode: extra.regionCode ?? base.regionCode,
-		city: extra.city ?? base.city,
-		latitude: extra.latitude ?? base.latitude,
-		longitude: extra.longitude ?? base.longitude,
-		timezone: extra.timezone ?? base.timezone,
-		// 运营商 / ASN 等用原来的服务商（ip-api）
-		isp: extra.isp ?? base.isp,
-		asn: extra.asn ?? base.asn,
-		org: extra.org ?? base.org,
-		mobile: extra.mobile ?? base.mobile,
-		hosting: extra.hosting ?? base.hosting,
-	};
 }
 
 /**
@@ -299,22 +278,19 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			context.cloudflare.env as unknown as { IPCHAXUN_API_KEY?: string }
 		).IPCHAXUN_API_KEY;
 
-		// 1) ipchaxun.com.cn 主查询（有 Key 时）
+		// 1) ipchaxun.com.cn 主数据源（有 Key 时）：重试 3 次，
+		//    成功就只用它一家，不再调用其他服务（不混合）
 		if (apiKey) {
-			try {
-				const info = await lookupByIpchaxun(ip, apiKey);
-				// 2) ip-api 补充缺失字段
+			for (let attempt = 0; attempt < 3; attempt++) {
 				try {
-					return Response.json(await enrichWithIpApi(info, ip));
+					return Response.json(await lookupByIpchaxun(ip, apiKey));
 				} catch {
-					return Response.json(info);
+					// 继续重试，3 次都不行再换其他服务
 				}
-			} catch {
-				// Key 无效/超限/网络异常 → 回退到 ip-api
 			}
 		}
 
-		// 3) ip-api 兜底，再失败回退 Cloudflare 边缘数据
+		// 2) ipchaxun 不可用 → ip-api 兜底
 		try {
 			return Response.json(await lookupByIpApi(ip));
 		} catch {
