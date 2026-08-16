@@ -81,6 +81,7 @@ export default function Ip() {
 	const [myState, setMyState] = useState<"loading" | "success" | "error">("loading");
 	const [myError, setMyError] = useState("");
 	const [latency, setLatency] = useState<number | null>(null);
+	const [myIpv6, setMyIpv6] = useState<string | null>(null);
 
 	// 进入页面自动获取我的 IP
 	useEffect(() => {
@@ -116,6 +117,26 @@ export default function Ip() {
 		};
 	}, []);
 
+	// 客户端检测访问者是否有 IPv6：请求 IPv6-only 回显，成功才有（失败即无，不显示）
+	useEffect(() => {
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch("https://api6.ipify.org", {
+					signal: AbortSignal.timeout(4000),
+				});
+				if (!res.ok) return;
+				const ipv6 = (await res.text()).trim();
+				if (!cancelled && ipv6) setMyIpv6(ipv6);
+			} catch {
+				// 无 IPv6 或网络异常：保持不显示
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	return (
 		<PageLayout title="IP 查询">
 			<div className="mt-10 space-y-6">
@@ -125,9 +146,14 @@ export default function Ip() {
 							<h2 className="text-lg font-medium tracking-tight">我的 IP</h2>
 							<div className="flex flex-col items-end gap-1">
 								<SourceBadge source={myIp?.source} />
-								{myIp?.egressIp && (
+								{myIp?.egressV4 && (
 									<span className="rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-										{myIp.egressIp}
+										{myIp.egressV4}
+									</span>
+								)}
+								{myIp?.egressV6 && (
+									<span className="rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+										{myIp.egressV6}
 									</span>
 								)}
 								{latency != null && (
@@ -149,6 +175,11 @@ export default function Ip() {
 								<p className="break-all text-3xl font-semibold tracking-widest sm:text-4xl">
 									{myIp.ip || "0.0.0.0"}
 								</p>
+								{myIpv6 && (
+									<p className="mt-1.5 break-all text-sm text-gray-400 dark:text-gray-500">
+										IPv6: {myIpv6}
+									</p>
+								)}
 								<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
 									<InfoBlock
 										value={myIp.ip ? locationZh(myIp) : undefined}

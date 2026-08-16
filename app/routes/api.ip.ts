@@ -125,49 +125,58 @@ async function writeIpCache(key: string, info: IpInfo): Promise<void> {
 	await cache.put(key, response);
 }
 
-/** 读取出口 IP 缓存（按机房，1h），未命中返回 null */
-async function readEgressCache(colo: string): Promise<string | null> {
+/** 读取出口 IP 缓存（按机房+协议，1h），未命中返回 null */
+async function readEgressCache(key: string): Promise<string | null> {
 	const cache = (caches as unknown as { default: Cache }).default;
-	const cached = await cache.match(`https://egress-ip/${colo}`);
+	const cached = await cache.match(`https://egress-ip/${key}`);
 	if (cached) return (await cached.text()) || null;
 	return null;
 }
 
 /** 写入出口 IP 缓存（1h） */
-async function writeEgressCache(colo: string, ip: string): Promise<void> {
+async function writeEgressCache(key: string, ip: string): Promise<void> {
 	const cache = (caches as unknown as { default: Cache }).default;
 	const response = new Response(ip, {
 		headers: { "cache-control": "public, max-age=3600, s-maxage=3600" },
 	});
-	await cache.put(`https://egress-ip/${colo}`, response);
+	await cache.put(`https://egress-ip/${key}`, response);
 }
 
-/**
- * 获取 Cloudflare Worker 的出口 IP（边缘节点出口地址）。
- * 用 CF 自家回显 cdn-cgi/trace（无第三方依赖、快速），按机房缓存 1h，
- * 同机房 1 小时内只出站查询 1 次，调用量可忽略。
- */
-async function lookupEgressIp(colo: string | undefined): Promise<string | undefined> {
-	if (!colo) return undefined;
-	const cached = await readEgressCache(colo);
+/** 请求指定协议的回显服务拿出口 IP（api4 强制 IPv4，api6 强制 IPv6） */
+async function lookupEgressByEcho(
+	colo: string,
+	ver: "4" | "6",
+	url: string,
+): Promise<string | undefined> {
+	const cacheKey = `${colo}-${ver}`;
+	const cached = await readEgressCache(cacheKey);
 	if (cached) return cached;
 
 	try {
-		const res = await fetch("https://www.cloudflare.com/cdn-cgi/trace", {
-			signal: AbortSignal.timeout(3000),
-		});
+		const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
 		if (!res.ok) return undefined;
-		const text = await res.text();
-		const ip = text
-			.split("\n")
-			.find((line) => line.startsWith("ip="))
-			?.slice(3)
-			.trim();
-		if (ip) await writeEgressCache(colo, ip);
+		const ip = (await res.text()).trim();
+		if (ip) await writeEgressCache(cacheKey, ip);
 		return ip;
 	} catch {
 		return undefined;
 	}
+}
+
+/**
+ * 获取 Cloudflare Worker 的出口 IPv4 / IPv6（边缘节点出口地址）。
+ * 分别请求 IPv4-only / IPv6-only 回显，按机房缓存 1h，调用量可忽略。
+ * Worker 不支持 IPv6 出站时，v6 为 undefined（页面自动不显示）。
+ */
+async function lookupEgressIps(
+	colo: string | undefined,
+): Promise<{ v4?: string; v6?: string }> {
+	if (!colo) return {};
+	const [v4, v6] = await Promise.all([
+		lookupEgressByEcho(colo, "4", "https://api4.ipify.org"),
+		lookupEgressByEcho(colo, "6", "https://api6.ipify.org"),
+	]);
+	return { v4, v6 };
 }
 
 /**
@@ -296,9 +305,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		context.cloudflare.env as unknown as { IPCHAXUN_API_KEY?: string }
 	).IPCHAXUN_API_KEY;
 
-	// 出口 IP（边缘节点出口地址，按机房缓存 1h，失败则省略）
+	// 出口 IP v4/v6（边缘节点出口地址，按机房缓存 1h，失败则省略）
 	const colo = cf?.colo ?? coloFromRay(request.headers.get("CF-Ray"));
-	const egressIp = await lookupEgressIp(colo);
+	const egress = await lookupEgressIps(colo);
 
 	// 1) ipchaxun.com.cn 主数据源（有 Key 时）：重试 3 次，
 	//    成功就只用它一家，不再调用其他服务（不混合）
@@ -306,7 +315,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
 				const info = await lookupByIpchaxun(ip, apiKey);
-				return Response.json({ ...info, egressIp });
+				return Response.json({
+					...info,
+					egressV4: egress.v4,
+					egressV6: egress.v6,
+				});
 			} catch {
 				// 继续重试，3 次都不行再换其他服务
 			}
@@ -316,7 +329,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	// 2) ipchaxun 不可用 → ip-api 兜底
 	try {
 		const info = await lookupByIpApi(ip);
-		return Response.json({ ...info, egressIp });
+		return Response.json({
+			...info,
+			egressV4: egress.v4,
+			egressV6: egress.v6,
+		});
 	} catch {
 		const info = fromCloudflareEdge(
 			ip,
@@ -324,7 +341,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			request.headers.get("CF-IPCountry"),
 			request.headers.get("CF-Ray"),
 		);
-		return Response.json({ ...info, egressIp });
+		return Response.json({
+			...info,
+			egressV4: egress.v4,
+			egressV6: egress.v6,
+		});
 	}
 }
 
