@@ -176,8 +176,8 @@ export default function Ip() {
 									{myIp.ip || "0.0.0.0"}
 								</p>
 								{myIpv6 && (
-									<p className="mt-1.5 break-all text-sm text-gray-400 dark:text-gray-500">
-										IPv6: {myIpv6}
+									<p className="mt-1.5 break-all text-3xl font-semibold tracking-widest sm:text-4xl">
+										{myIpv6}
 									</p>
 								)}
 								<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">

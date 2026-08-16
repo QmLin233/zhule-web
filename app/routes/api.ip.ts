@@ -142,7 +142,7 @@ async function writeEgressCache(key: string, ip: string): Promise<void> {
 	await cache.put(`https://egress-ip/${key}`, response);
 }
 
-/** 请求指定协议的回显服务拿出口 IP（api4 强制 IPv4，api6 强制 IPv6） */
+/** 请求指定协议的回显服务拿出口 IP，并校验协议族（ver=4 必须 IPv4，ver=6 必须 IPv6） */
 async function lookupEgressByEcho(
 	colo: string,
 	ver: "4" | "6",
@@ -156,8 +156,38 @@ async function lookupEgressByEcho(
 		const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
 		if (!res.ok) return undefined;
 		const ip = (await res.text()).trim();
-		if (ip) await writeEgressCache(cacheKey, ip);
+		// 校验地址族：api4 若返回 IPv6（如 Worker 走 IPv6 出口）则丢弃，避免把 IPv6 当 IPv4 显示
+		const valid = ver === "4" ? isIpv4(ip) : isIpv6(ip);
+		if (!valid) return undefined;
+		await writeEgressCache(cacheKey, ip);
 		return ip;
+	} catch {
+		return undefined;
+	}
+}
+
+/** 用 CF 自家回显 cdn-cgi/trace 获取出口 IPv4（作为 api4 返回 IPv6 时的兜底） */
+async function lookupEgressV4FromTrace(colo: string): Promise<string | undefined> {
+	const cacheKey = `${colo}-4`;
+	const cached = await readEgressCache(cacheKey);
+	if (cached) return cached;
+
+	try {
+		const res = await fetch("https://www.cloudflare.com/cdn-cgi/trace", {
+			signal: AbortSignal.timeout(3000),
+		});
+		if (!res.ok) return undefined;
+		const text = await res.text();
+		const ip = text
+			.split("\n")
+			.find((line) => line.startsWith("ip="))
+			?.slice(3)
+			.trim();
+		if (ip && isIpv4(ip)) {
+			await writeEgressCache(cacheKey, ip);
+			return ip;
+		}
+		return undefined;
 	} catch {
 		return undefined;
 	}
@@ -165,15 +195,17 @@ async function lookupEgressByEcho(
 
 /**
  * 获取 Cloudflare Worker 的出口 IPv4 / IPv6（边缘节点出口地址）。
- * 分别请求 IPv4-only / IPv6-only 回显，按机房缓存 1h，调用量可忽略。
- * Worker 不支持 IPv6 出站时，v6 为 undefined（页面自动不显示）。
+ * api4 / api6 分别强制 IPv4 / IPv6 回显，均校验协议族并按机房缓存 1h；
+ * api4 返回非 IPv4 时回退 cdn-cgi/trace。调用量可忽略。
  */
 async function lookupEgressIps(
 	colo: string | undefined,
 ): Promise<{ v4?: string; v6?: string }> {
 	if (!colo) return {};
 	const [v4, v6] = await Promise.all([
-		lookupEgressByEcho(colo, "4", "https://api4.ipify.org"),
+		lookupEgressByEcho(colo, "4", "https://api4.ipify.org").then(
+			(ip) => ip ?? lookupEgressV4FromTrace(colo),
+		),
 		lookupEgressByEcho(colo, "6", "https://api6.ipify.org"),
 	]);
 	return { v4, v6 };
