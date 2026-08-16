@@ -14,3 +14,64 @@ html,
 body {
 	@apply bg-cream text-gray-900 dark:bg-gray-950 dark:text-gray-100;
 }
+
+/* 2048 新方块出现动画（从 0.6 平滑放大到正常大小） */
+@keyframes tile-appear {
+	0% {
+		opacity: 0;
+		transform: scale(0.6);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* 2048 合并方块动画（轻微变大 5% 再回正常，表示长大） */
+@keyframes tile-pop {
+	0% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.05);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+.tile-new {
+	animation: tile-appear 0.2s ease 0.1s;
+}
+
+.tile-merged {
+	animation: tile-pop 0.2s ease 0.1s;
+}
+
+/* 2048 固定尺寸棋盘（transform 定位，原版方案） */
+.game2048-board {
+	--gap: 12px; /* 内间距（格子间） */
+	--pad: var(--gap); /* 外边缘间距与内边缘一致 */
+	--step: 102px; /* 桌面：格子 90px + 间距 12px */
+	width: calc(4 * var(--step) - var(--gap) + 2 * var(--pad));
+	height: calc(4 * var(--step) - var(--gap) + 2 * var(--pad));
+}
+
+@media (max-width: 520px) {
+	.game2048-board {
+		--step: 72px; /* 移动：格子 60px + 间距 12px */
+	}
+}
+
+.game2048-tile {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: calc(var(--step) - var(--gap));
+	height: calc(var(--step) - var(--gap));
+	transform: translate(
+		calc(var(--pad, 0px) + var(--x, 0) * var(--step)),
+		calc(var(--pad, 0px) + var(--y, 0) * var(--step))
+	);
+	transition: transform 0.1s ease-in-out;
+}
