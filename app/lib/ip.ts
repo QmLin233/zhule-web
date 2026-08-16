@@ -34,6 +34,8 @@ export type IpInfo = {
 	asn?: string;
 	/** Cloudflare 边缘节点代码（方案 1 独有），如 NRT / HKG */
 	colo?: string;
+	/** Cloudflare Worker 出口 IP（边缘节点出口地址，按机房缓存） */
+	egressIp?: string;
 	/** 是否移动网络 */
 	mobile?: boolean;
 	/** 是否代理 / VPN */

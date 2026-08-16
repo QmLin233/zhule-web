@@ -125,6 +125,51 @@ async function writeIpCache(key: string, info: IpInfo): Promise<void> {
 	await cache.put(key, response);
 }
 
+/** 读取出口 IP 缓存（按机房，1h），未命中返回 null */
+async function readEgressCache(colo: string): Promise<string | null> {
+	const cache = (caches as unknown as { default: Cache }).default;
+	const cached = await cache.match(`https://egress-ip/${colo}`);
+	if (cached) return (await cached.text()) || null;
+	return null;
+}
+
+/** 写入出口 IP 缓存（1h） */
+async function writeEgressCache(colo: string, ip: string): Promise<void> {
+	const cache = (caches as unknown as { default: Cache }).default;
+	const response = new Response(ip, {
+		headers: { "cache-control": "public, max-age=3600, s-maxage=3600" },
+	});
+	await cache.put(`https://egress-ip/${colo}`, response);
+}
+
+/**
+ * 获取 Cloudflare Worker 的出口 IP（边缘节点出口地址）。
+ * 用 CF 自家回显 cdn-cgi/trace（无第三方依赖、快速），按机房缓存 1h，
+ * 同机房 1 小时内只出站查询 1 次，调用量可忽略。
+ */
+async function lookupEgressIp(colo: string | undefined): Promise<string | undefined> {
+	if (!colo) return undefined;
+	const cached = await readEgressCache(colo);
+	if (cached) return cached;
+
+	try {
+		const res = await fetch("https://www.cloudflare.com/cdn-cgi/trace", {
+			signal: AbortSignal.timeout(3000),
+		});
+		if (!res.ok) return undefined;
+		const text = await res.text();
+		const ip = text
+			.split("\n")
+			.find((line) => line.startsWith("ip="))
+			?.slice(3)
+			.trim();
+		if (ip) await writeEgressCache(colo, ip);
+		return ip;
+	} catch {
+		return undefined;
+	}
+}
+
 /**
  * 用 ip-api.com 查询 IP（支持 IPv4 / IPv6）。
  * 命中缓存直接返回，未命中请求第三方，写入 24h 缓存降低调用量。
@@ -251,12 +296,17 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		context.cloudflare.env as unknown as { IPCHAXUN_API_KEY?: string }
 	).IPCHAXUN_API_KEY;
 
+	// 出口 IP（边缘节点出口地址，按机房缓存 1h，失败则省略）
+	const colo = cf?.colo ?? coloFromRay(request.headers.get("CF-Ray"));
+	const egressIp = await lookupEgressIp(colo);
+
 	// 1) ipchaxun.com.cn 主数据源（有 Key 时）：重试 3 次，
 	//    成功就只用它一家，不再调用其他服务（不混合）
 	if (apiKey) {
 		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
-				return Response.json(await lookupByIpchaxun(ip, apiKey));
+				const info = await lookupByIpchaxun(ip, apiKey);
+				return Response.json({ ...info, egressIp });
 			} catch {
 				// 继续重试，3 次都不行再换其他服务
 			}
@@ -265,16 +315,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 	// 2) ipchaxun 不可用 → ip-api 兜底
 	try {
-		return Response.json(await lookupByIpApi(ip));
+		const info = await lookupByIpApi(ip);
+		return Response.json({ ...info, egressIp });
 	} catch {
-		return Response.json(
-			fromCloudflareEdge(
-				ip,
-				cf,
-				request.headers.get("CF-IPCountry"),
-				request.headers.get("CF-Ray"),
-			),
+		const info = fromCloudflareEdge(
+			ip,
+			cf,
+			request.headers.get("CF-IPCountry"),
+			request.headers.get("CF-Ray"),
 		);
+		return Response.json({ ...info, egressIp });
 	}
 }
 
