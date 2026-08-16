@@ -62,6 +62,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 const SOURCE_NAMES: Record<string, string> = {
 	cf: "Cloudflare",
 	"ip-api": "ip-api.com",
+	ipchaxun: "ipchaxun.com.cn",
 	ipinfo: "ipinfo.io",
 	geo: "GeoIP 数据库",
 };
