@@ -62,7 +62,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 const SOURCE_NAMES: Record<string, string> = {
 	cf: "Cloudflare",
 	"ip-api": "ip-api.com",
-	ipchaxun: "ipchaxun.com.cn",
+	ipchaxun: "Cloudflare",
 	ipinfo: "ipinfo.io",
 	geo: "GeoIP 数据库",
 };
@@ -261,7 +261,7 @@ export default function Ip() {
 
 						{myState === "success" && myIp && (
 							<div className="mt-4">
-								<p className="break-all text-3xl font-semibold tracking-wider sm:text-4xl">
+								<p className="break-all text-3xl font-semibold tracking-widest sm:text-4xl">
 									{myIp.ip || "0.0.0.0"}
 								</p>
 								<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -286,6 +286,10 @@ export default function Ip() {
 					</section>
 
 				</div>
+
+				<p className="mt-10 text-center text-xs text-gray-400 dark:text-gray-500">
+					灰度测试使用，结果仅供参考。
+				</p>
 		</PageLayout>
 	);
 }

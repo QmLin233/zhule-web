@@ -249,16 +249,18 @@ async function enrichWithIpApi(base: IpInfo, ip: string): Promise<IpInfo> {
 	const extra = await lookupByIpApi(ip);
 	return {
 		...base,
-		// 国家用 ip-api 英文名（英文行显示），countryCode 供中文映射
-		country: extra.country ?? base.country,
-		countryCode: extra.countryCode ?? base.countryCode,
+		// 属地国家保留 ipchaxun（用户指定），城市/省份由 ip-api 补充
+		country: base.country ?? extra.country,
+		countryCode: base.countryCode ?? extra.countryCode,
 		region: extra.region ?? base.region,
 		regionCode: extra.regionCode ?? base.regionCode,
 		city: extra.city ?? base.city,
 		latitude: extra.latitude ?? base.latitude,
 		longitude: extra.longitude ?? base.longitude,
 		timezone: extra.timezone ?? base.timezone,
-		isp: base.isp ?? extra.isp,
+		// 运营商 / ASN 等用原来的服务商（ip-api）
+		isp: extra.isp ?? base.isp,
+		asn: extra.asn ?? base.asn,
 		org: extra.org ?? base.org,
 		mobile: extra.mobile ?? base.mobile,
 		hosting: extra.hosting ?? base.hosting,
