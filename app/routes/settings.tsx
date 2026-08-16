@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/settings";
-import { NavMenu } from "../components/NavMenu";
+import { PageLayout } from "../components/PageLayout";
+import { pageMeta } from "../lib/meta";
 
 export function meta({}: Route.MetaArgs) {
-	return [{ title: "设置 | 逐乐" }];
+	return pageMeta("设置");
 }
 
 type Lang = "zh" | "en";
@@ -33,18 +34,9 @@ export default function Settings() {
 	}, [lang]);
 
 	return (
-		<div className="flex min-h-screen flex-col bg-cream text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-			<NavMenu />
-			<main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-				<header className="text-center">
-					<h1 className="text-4xl font-semibold tracking-tight">设置</h1>
-					<p className="mt-2 text-sm tracking-[0.3em] text-gray-400 dark:text-gray-500">
-						SETTINGS
-					</p>
-				</header>
-
-				<div className="mt-10">
-					<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
+		<PageLayout title="设置" subtitle="SETTINGS">
+			<div className="mt-10">
+				<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
 						{/* 语言设置项 */}
 						<div className="flex items-center justify-between gap-4">
 							<p className="text-sm font-medium text-gray-800 dark:text-gray-100">
@@ -76,8 +68,7 @@ export default function Settings() {
 							</div>
 						</div>
 					</section>
-				</div>
-			</main>
-		</div>
+			</div>
+		</PageLayout>
 	);
 }

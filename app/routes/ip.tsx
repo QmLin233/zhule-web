@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import type { Route } from "./+types/ip";
 import type { IpInfo } from "~/lib/ip";
-import { NavMenu } from "../components/NavMenu";
+import { PageLayout } from "../components/PageLayout";
+import { pageMeta } from "../lib/meta";
 
 export function meta({}: Route.MetaArgs) {
-	return [{ title: "IP 查询 | 逐乐" }];
+	return pageMeta("IP 查询");
 }
 
 /** /api/ip 的响应：成功为 IpInfo，失败时携带 error */
@@ -137,12 +138,11 @@ function locationZh(info: IpInfo): string | undefined {
 	return parts.length ? parts.join("") : undefined;
 }
 
-// 双语显示：English & 中文
+// 双语显示：中文一行 + 英文一行（换行分隔，不串行）
 function locationText(info: IpInfo): string | undefined {
-	const en = locationEn(info);
 	const zh = locationZh(info);
-	if (!en) return zh;
-	if (zh) return `${en} & ${zh}`;
+	const en = locationEn(info);
+	if (zh) return en ? `${zh}\n${en}` : zh;
 	return en;
 }
 
@@ -155,7 +155,7 @@ function InfoBlock({ label, value }: { label: string; value?: string | number })
 	return (
 		<div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-gray-800/40">
 			<p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-			<p className="mt-1 break-words text-sm font-medium text-gray-800 dark:text-gray-100">
+			<p className="mt-1 whitespace-pre-line break-words text-sm font-medium text-gray-800 dark:text-gray-100">
 				{value !== undefined && value !== null && value !== "" ? value : "None"}
 			</p>
 		</div>
@@ -201,11 +201,6 @@ export default function Ip() {
 	const [myIp, setMyIp] = useState<IpInfo | null>(null);
 	const [myState, setMyState] = useState<"loading" | "success" | "error">("loading");
 	const [myError, setMyError] = useState("");
-
-	const [input, setInput] = useState("");
-	const [result, setResult] = useState<IpInfo | null>(null);
-	const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
-	const [error, setError] = useState("");
 	const [latency, setLatency] = useState<number | null>(null);
 
 	// 进入页面自动获取我的 IP
@@ -242,38 +237,9 @@ export default function Ip() {
 		};
 	}, []);
 
-	async function handleSubmit(e: FormEvent) {
-		e.preventDefault();
-		const q = input.trim();
-		if (!q) return;
-		setState("loading");
-		setResult(null);
-		setError("");
-		try {
-			const data = await fetchIpInfo(
-				`/api/ip?ip=${encodeURIComponent(q)}`,
-				"查询失败 · Lookup failed",
-			);
-			setResult(data);
-			setState("success");
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "查询失败 · Lookup failed");
-			setState("error");
-		}
-	}
-
 	return (
-		<div className="flex min-h-screen flex-col bg-cream text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-			<NavMenu />
-			<main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-				<header className="text-center">
-					<h1 className="text-4xl font-semibold tracking-tight">IP 查询</h1>
-					<p className="mt-2 text-sm tracking-[0.3em] text-gray-400 dark:text-gray-500">
-						IP LOOKUP
-					</p>
-				</header>
-
-				<div className="mt-10 space-y-6">
+		<PageLayout title="IP 查询" subtitle="IP LOOKUP">
+			<div className="mt-10 space-y-6">
 					{/* 我的 IP */}
 					<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
 						<div className="flex items-center justify-between">
@@ -318,63 +284,7 @@ export default function Ip() {
 						)}
 					</section>
 
-					{/* 查询任意 IP */}
-					<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
-						<h2 className="text-lg font-medium tracking-tight">
-							查询任意 IP{" "}
-							<span className="ml-1 text-sm font-normal text-gray-400 dark:text-gray-500">
-								Lookup IP
-							</span>
-						</h2>
-
-						<form onSubmit={handleSubmit} className="mt-4 flex gap-2">
-							<input
-								type="text"
-								value={input}
-								onChange={(e) => setInput(e.target.value)}
-								autoComplete="off"
-								spellCheck={false}
-								className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-gray-500 dark:focus:ring-gray-700"
-							/>
-							<button
-								type="submit"
-								disabled={state === "loading" || !input.trim()}
-								className="shrink-0 rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
-							>
-								查询 Lookup
-							</button>
-						</form>
-
-						<div className="mt-5">
-							{state === "loading" && <Loading />}
-							{state === "error" && (
-								<p className="py-4 text-sm text-red-500 dark:text-red-400">{error}</p>
-							)}
-							{state === "success" && result && (
-								<div>
-									<p className="break-all text-2xl font-semibold tracking-wider">{result.ip}</p>
-									<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-										<InfoBlock label="IP 属地 · Location" value={locationText(result)} />
-										<InfoBlock label="运营商 · ISP" value={result.isp ?? result.org} />
-										<InfoBlock label="ASN" value={result.asn} />
-										<InfoBlock label="时区 · Timezone" value={result.timezone} />
-										<InfoBlock label="经纬度 · Coordinates" value={coordinateText(result)} />
-										{result.proxy !== undefined && (
-											<InfoBlock label="代理 / VPN · Proxy / VPN" value={result.proxy ? "是" : "否"} />
-										)}
-										{result.hosting !== undefined && (
-											<InfoBlock label="数据中心 · Datacenter" value={result.hosting ? "是" : "否"} />
-										)}
-										{result.mobile !== undefined && (
-											<InfoBlock label="移动网络 · Mobile" value={result.mobile ? "是" : "否"} />
-										)}
-									</div>
-								</div>
-							)}
-						</div>
-					</section>
 				</div>
-			</main>
-		</div>
+		</PageLayout>
 	);
 }

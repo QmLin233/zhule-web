@@ -201,3 +201,6 @@ dist
 ### React Router ###
 .react-router/
 /build/
+
+# Cloudflare Worker 自动生成类型（由 `npm run cf-typegen` 生成，不应手动提交）
+worker-configuration.d.ts

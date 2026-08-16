@@ -15,8 +15,8 @@ import type { IpInfo } from "~/lib/ip";
 // 前端页面与数据契约见 app/lib/ip.ts，接入新方案时无需改动。
 // ============================================================
 
-/** 任意 IP 查询当前的数据源（扩展点 1：切换方案 2 / 3 的开关） */
-const ARBITRARY_IP_SOURCE: "none" | "ip-api" | "d1-geolite2" = "ip-api";
+/** 任意 IP 查询当前的数据源（扩展点 1：切换方案 2 / 3 的开关；当前取消该功能，置为 none） */
+const ARBITRARY_IP_SOURCE: "none" | "ip-api" | "d1-geolite2" = "none";
 
 /** Cloudflare 请求自带的边缘地理信息（request.cf） */
 type CfGeo = {
