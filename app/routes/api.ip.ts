@@ -57,11 +57,17 @@ function isIpv4(ip: string): boolean {
 	return parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
 }
 
-/** IPv6 校验：允许完整/压缩形式（含 :: 与 IPv4 映射段） */
+// 标准 IPv6 地址校验（完整/压缩形式，含 ::）
+const IPV6_RE =
+	/^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+
+/** IPv6 校验：完整/压缩形式（含 ::），同时接受 IPv4 映射段（如 ::ffff:1.2.3.4） */
 function isIpv6(ip: string): boolean {
 	if (!ip.includes(":")) return false;
-	// 允许形如 2400:... 或 64:ff9b::1.2.3.4
-	return /^[0-9a-fA-F:.]+$/.test(ip);
+	// 去掉末尾 IPv4 映射段后按纯 IPv6 校验
+	const v4 = ip.match(/(\d{1,3}\.){3}\d{1,3}$/);
+	const pure = v4 ? ip.slice(0, v4.index) : ip;
+	return IPV6_RE.test(pure);
 }
 
 /** 同时接受 IPv4 与 IPv6 */

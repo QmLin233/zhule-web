@@ -13,14 +13,23 @@ export default function Settings() {
 
 	// 初始化语言：优先读取 localStorage
 	useEffect(() => {
-		const stored = localStorage.getItem("lang");
+		let stored: string | null = null;
+		try {
+			stored = localStorage.getItem("lang");
+		} catch {
+			// 浏览器禁用存储时忽略
+		}
 		if (stored === "zh" || stored === "en") setLang(stored);
 	}, []);
 
 	// 同步语言到 <html lang> 并持久化
 	useEffect(() => {
 		document.documentElement.lang = lang;
-		localStorage.setItem("lang", lang);
+		try {
+			localStorage.setItem("lang", lang);
+		} catch {
+			// 浏览器禁用存储时忽略
+		}
 	}, [lang]);
 
 	return (

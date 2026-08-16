@@ -10,6 +10,14 @@ export function meta({}: Route.MetaArgs) {
 /** /api/ip 的响应：成功为 IpInfo，失败时携带 error */
 type IpResponse = IpInfo & { error?: string };
 
+/** 请求 /api/ip 并解析 JSON，失败时抛出错误 */
+async function fetchIpInfo(url: string, failMsg: string): Promise<IpResponse> {
+	const res = await fetch(url);
+	const data = (await res.json()) as IpResponse;
+	if (!res.ok || data.error) throw new Error(data.error || failMsg);
+	return data;
+}
+
 const COUNTRY_NAMES: Record<string, string> = {
 	CN: "中国",
 	HK: "中国香港",
@@ -135,9 +143,7 @@ export default function Ip() {
 		let cancelled = false;
 		(async () => {
 			try {
-				const res = await fetch("/api/ip");
-				const data = (await res.json()) as IpResponse;
-				if (!res.ok || data.error) throw new Error(data.error || "获取失败");
+				const data = await fetchIpInfo("/api/ip", "获取失败 · Load failed");
 				if (!cancelled) {
 					setMyIp(data);
 					setMyState("success");
@@ -174,9 +180,10 @@ export default function Ip() {
 		setResult(null);
 		setError("");
 		try {
-			const res = await fetch(`/api/ip?ip=${encodeURIComponent(q)}`);
-			const data = (await res.json()) as IpResponse;
-			if (!res.ok || data.error) throw new Error(data.error || "查询失败");
+			const data = await fetchIpInfo(
+				`/api/ip?ip=${encodeURIComponent(q)}`,
+				"查询失败 · Lookup failed",
+			);
 			setResult(data);
 			setState("success");
 		} catch (e) {

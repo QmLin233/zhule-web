@@ -16,7 +16,12 @@ export function NavMenu() {
 
 	// 初始化主题：优先读取 localStorage，其次跟随系统偏好
 	useEffect(() => {
-		const stored = localStorage.getItem("theme");
+		let stored: string | null = null;
+		try {
+			stored = localStorage.getItem("theme");
+		} catch {
+			// 浏览器禁用存储时忽略（如阻止 Cookie）
+		}
 		const prefersDark = window.matchMedia(
 			"(prefers-color-scheme: dark)",
 		).matches;
@@ -26,7 +31,11 @@ export function NavMenu() {
 	// 同步主题到 <html> 并持久化
 	useEffect(() => {
 		document.documentElement.classList.toggle("dark", dark);
-		localStorage.setItem("theme", dark ? "dark" : "light");
+		try {
+			localStorage.setItem("theme", dark ? "dark" : "light");
+		} catch {
+			// 浏览器禁用存储时忽略
+		}
 	}, [dark]);
 
 	const toggleTheme = () => setDark((v) => !v);
