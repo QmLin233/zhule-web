@@ -4,21 +4,19 @@ import type { IpInfo } from "~/lib/ip";
 // ============================================================
 // IP 查询后端（/api/ip）
 //
-// 当前只启用「方案 1」：Cloudflare 边缘数据（request.cf + CF-IPCountry 头），
-// 仅能解析「访问者自己」的 IP，零成本、零第三方依赖。
-//
-// 注意：免费套餐下 request.cf 只提供 country / asn / colo / continent 等，
-// 省/州、城市、运营商、经纬度、时区等字段在免费版不填充，属正常现象；
-// 需要这些字段时再启用方案 2（第三方 API）或方案 3（GeoLite2 + D1）。
+// 数据源：
+//  - 「我的 IP」：方案 1，Cloudflare 边缘数据（request.cf + CF-IPCountry 头）
+//  - 「任意 IP 查询」：方案 2，代理 ip-api.com（同时支持 IPv4 / IPv6），
+//    用 Cache API 缓存 24h 降低第三方调用量
 //
 // 扩展点：
-//   1. ARBITRARY_IP_SOURCE —— 切换「任意 IP 查询」的数据源
-//   2. lookupArbitraryIp() —— 实现对应数据源（方案 2 / 方案 3）
+//   1. ARBITRARY_IP_SOURCE —— 切换「任意 IP 查询」的数据源（none / ip-api / d1-geolite2）
+//   2. lookupArbitraryIp() —— 实现对应数据源（方案 2 已实现，方案 3 待接入）
 // 前端页面与数据契约见 app/lib/ip.ts，接入新方案时无需改动。
 // ============================================================
 
 /** 任意 IP 查询当前的数据源（扩展点 1：切换方案 2 / 3 的开关） */
-const ARBITRARY_IP_SOURCE: "none" | "ip-api" | "d1-geolite2" = "none";
+const ARBITRARY_IP_SOURCE: "none" | "ip-api" | "d1-geolite2" = "ip-api";
 
 /** Cloudflare 请求自带的边缘地理信息（request.cf） */
 type CfGeo = {
@@ -52,6 +50,25 @@ function coloFromRay(ray: string | null): string | undefined {
 	return i >= 0 ? ray.slice(i + 1) : undefined;
 }
 
+/** IPv4 校验：四段十进制，每段 0-255 */
+function isIpv4(ip: string): boolean {
+	const parts = ip.split(".");
+	if (parts.length !== 4) return false;
+	return parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
+}
+
+/** IPv6 校验：允许完整/压缩形式（含 :: 与 IPv4 映射段） */
+function isIpv6(ip: string): boolean {
+	if (!ip.includes(":")) return false;
+	// 允许形如 2400:... 或 64:ff9b::1.2.3.4
+	return /^[0-9a-fA-F:.]+$/.test(ip);
+}
+
+/** 同时接受 IPv4 与 IPv6 */
+function isValidIp(ip: string): boolean {
+	return isIpv4(ip) || isIpv6(ip);
+}
+
 /**
  * 方案 1：用 Cloudflare 边缘数据构建「我的 IP」信息。
  * cf 来自入口 fetch 捕获的原始 request.cf（见 workers/app.ts 的 context.cf），
@@ -80,16 +97,68 @@ function fromCloudflareEdge(
 	};
 }
 
+/** ip-api.com 单条查询的字段列表（免费套餐，支持 IPv4 / IPv6） */
+const IP_API_FIELDS =
+	"status,message,country,countryCode,region,regionName,city,lat,lon,timezone,isp,org,as,query,mobile,proxy,hosting";
+
 /**
  * 扩展点 2：「任意 IP 查询」的数据源实现。
- * 方案 2（第三方 API + 缓存）与方案 3（GeoLite2 + D1）在此实现。
+ * 方案 2（ip-api.com）已实现：先查 Cache，未命中再请求第三方，缓存 24h。
  * 返回 null 表示当前数据源不支持该查询。
  */
-async function lookupArbitraryIp(_ip: string): Promise<IpInfo | null> {
+async function lookupArbitraryIp(ip: string): Promise<IpInfo | null> {
 	switch (ARBITRARY_IP_SOURCE) {
-		case "ip-api":
-			// TODO(方案2): 代理 ip-api.com / ipinfo.io，用 Cache API 缓存结果
-			return null;
+		case "ip-api": {
+			if (!isValidIp(ip)) {
+				throw new Error("无效的 IP 地址 · Invalid IP address");
+			}
+
+			// 命中缓存直接返回（Cloudflare Cache API，24h）
+			const cacheKey = `https://ip-api.com/${ip}`;
+			const cache = (caches as unknown as { default: Cache }).default;
+			const cached = await cache.match(cacheKey);
+			if (cached) {
+				return (await cached.json()) as IpInfo;
+			}
+
+			const url = `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=${IP_API_FIELDS}`;
+			const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+			const data = (await res.json()) as Record<string, unknown>;
+
+			if (data.status !== "success") {
+				throw new Error((data.message as string) || "查询失败 · Lookup failed");
+			}
+
+			const info: IpInfo = {
+				ip: (data.query as string) ?? ip,
+				query: ip,
+				country: data.country as string | undefined,
+				countryCode: data.countryCode as string | undefined,
+				region: (data.regionName as string) ?? (data.region as string),
+				regionCode: data.region as string | undefined,
+				city: data.city as string | undefined,
+				latitude: typeof data.lat === "number" ? data.lat : undefined,
+				longitude: typeof data.lon === "number" ? data.lon : undefined,
+				timezone: data.timezone as string | undefined,
+				isp: data.isp as string | undefined,
+				org: data.org as string | undefined,
+				asn: typeof data.as === "string" ? data.as : undefined,
+				mobile: data.mobile as boolean | undefined,
+				proxy: data.proxy as boolean | undefined,
+				hosting: data.hosting as boolean | undefined,
+				source: "ip-api",
+			};
+
+			// 写入缓存（24h），减少第三方调用
+			const cacheResponse = new Response(JSON.stringify(info), {
+				headers: {
+					"content-type": "application/json",
+					"cache-control": "public, max-age=86400, s-maxage=86400",
+				},
+			});
+			await cache.put(cacheKey, cacheResponse);
+			return info;
+		}
 		case "d1-geolite2":
 			// TODO(方案3): 查询已导入 GeoLite2 数据的 D1 表
 			return null;
@@ -118,14 +187,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		);
 	}
 
-	// 查询任意 IP：由当前数据源决定（默认方案 1 不支持，返回 501 提示）
-	const info = await lookupArbitraryIp(query);
-	if (info) {
-		return Response.json(info);
+	// 查询任意 IP（支持 IPv4 / IPv6）：由当前数据源决定
+	try {
+		const info = await lookupArbitraryIp(query);
+		if (info) {
+			return Response.json(info);
+		}
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : "查询失败 · Lookup failed";
+		return Response.json({ error: msg }, { status: 400 });
 	}
 	return Response.json(
 		{ error: "任意 IP 查询功能尚未启用，请稍后再试 · Arbitrary IP lookup coming soon" },
 		{ status: 501 },
 	);
 }
+
 

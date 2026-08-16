@@ -68,14 +68,17 @@ function locationText(info: IpInfo): string | undefined {
 	return parts.length ? parts.join(" · ") : undefined;
 }
 
+function coordinateText(info: IpInfo): string | undefined {
+	if (info.latitude == null || info.longitude == null) return undefined;
+	return `${info.latitude.toFixed(4)}, ${info.longitude.toFixed(4)}`;
+}
+
 function InfoBlock({ label, value }: { label: string; value?: string | number }) {
-	// 后端没有该字段数据时，整个板块不渲染（不显示 "—" 占位）
-	if (value === undefined || value === null || value === "") return null;
 	return (
 		<div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-gray-800/40">
 			<p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
 			<p className="mt-1 break-words text-sm font-medium text-gray-800 dark:text-gray-100">
-				{value}
+				{value !== undefined && value !== null && value !== "" ? value : "None"}
 			</p>
 		</div>
 	);
@@ -99,6 +102,23 @@ function Loading() {
 	);
 }
 
+// 测量本机到 Cloudflare 节点的网络延迟：多次 HEAD 请求取最小值（最接近真实 RTT）
+// 用静态资源 favicon.ico 测量，由边缘直接响应，不含服务端处理时间
+async function measureLatency(samples = 3): Promise<number> {
+	let best = Infinity;
+	for (let i = 0; i < samples; i++) {
+		const start = performance.now();
+		try {
+			await fetch("/favicon.ico", { method: "HEAD", cache: "no-store" });
+			const rtt = performance.now() - start;
+			if (rtt < best) best = rtt;
+		} catch {
+			// 单次失败忽略，继续下一轮
+		}
+	}
+	return Number.isFinite(best) ? Math.round(best) : 0;
+}
+
 export default function Ip() {
 	const [myIp, setMyIp] = useState<IpInfo | null>(null);
 	const [myState, setMyState] = useState<"loading" | "success" | "error">("loading");
@@ -108,6 +128,7 @@ export default function Ip() {
 	const [result, setResult] = useState<IpInfo | null>(null);
 	const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
 	const [error, setError] = useState("");
+	const [latency, setLatency] = useState<number | null>(null);
 
 	// 进入页面自动获取我的 IP
 	useEffect(() => {
@@ -127,6 +148,18 @@ export default function Ip() {
 					setMyState("error");
 				}
 			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	// 测量到节点的网络延迟
+	useEffect(() => {
+		let cancelled = false;
+		(async () => {
+			const ms = await measureLatency();
+			if (!cancelled) setLatency(ms);
 		})();
 		return () => {
 			cancelled = true;
@@ -184,25 +217,26 @@ export default function Ip() {
 
 						{myState === "success" && myIp && (
 							<div className="mt-4">
-								<p className="break-all text-3xl font-semibold tracking-tight sm:text-4xl">
-									{myIp.ip || "None"}
+								<p className="break-all text-3xl font-semibold tracking-wider sm:text-4xl">
+									{myIp.ip || "0.0.0.0"}
 								</p>
-								{/* 无真实 IP（如本地开发）时，地理位置数据无意义，不显示 */}
-								{myIp.ip && locationText(myIp) && (
-									<p className="mt-2 text-sm text-gray-400 dark:text-gray-500">
-										{locationText(myIp)}
-									</p>
-								)}
-								{myIp.ip && (
-									<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-										<InfoBlock label="国家 / 地区 · Country / Region" value={countryName(myIp)} />
-										<InfoBlock label="省 / 州 · Province / State" value={myIp.region ?? myIp.regionCode} />
-										<InfoBlock label="城市 · City" value={myIp.city} />
-										<InfoBlock label="运营商 · ISP" value={myIp.isp ?? myIp.org} />
-										<InfoBlock label="ASN" value={myIp.asn} />
-										<InfoBlock label="时区 · Timezone" value={myIp.timezone} />
-									</div>
-								)}
+								<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+									<InfoBlock
+										label="IP 属地 · Location"
+										value={myIp.ip ? locationText(myIp) : undefined}
+									/>
+									<InfoBlock
+										label="运营商 · ISP"
+										value={myIp.ip ? (myIp.isp ?? myIp.org) : undefined}
+									/>
+									<InfoBlock label="ASN" value={myIp.ip ? myIp.asn : undefined} />
+									<InfoBlock label="时区 · Timezone" value={myIp.ip ? myIp.timezone : undefined} />
+									<InfoBlock label="经纬度 · Coordinates" value={myIp.ip ? coordinateText(myIp) : undefined} />
+									<InfoBlock
+										label="延迟 · Latency"
+										value={myIp.ip && latency != null ? `${latency} ms` : undefined}
+									/>
+								</div>
 							</div>
 						)}
 					</section>
@@ -241,19 +275,13 @@ export default function Ip() {
 							)}
 							{state === "success" && result && (
 								<div>
-									<p className="break-all text-2xl font-semibold tracking-tight">{result.ip}</p>
-									{locationText(result) && (
-										<p className="mt-1.5 text-sm text-gray-400 dark:text-gray-500">
-											{locationText(result)}
-										</p>
-									)}
+									<p className="break-all text-2xl font-semibold tracking-wider">{result.ip}</p>
 									<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-										<InfoBlock label="国家 / 地区 · Country / Region" value={countryName(result)} />
-										<InfoBlock label="省 / 州 · Province / State" value={result.region ?? result.regionCode} />
-										<InfoBlock label="城市 · City" value={result.city} />
+										<InfoBlock label="IP 属地 · Location" value={locationText(result)} />
 										<InfoBlock label="运营商 · ISP" value={result.isp ?? result.org} />
 										<InfoBlock label="ASN" value={result.asn} />
 										<InfoBlock label="时区 · Timezone" value={result.timezone} />
+										<InfoBlock label="经纬度 · Coordinates" value={coordinateText(result)} />
 										{result.proxy !== undefined && (
 											<InfoBlock label="代理 / VPN · Proxy / VPN" value={result.proxy ? "是" : "否"} />
 										)}
