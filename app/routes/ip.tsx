@@ -146,14 +146,9 @@ export default function Ip() {
 							<h2 className="text-lg font-medium tracking-tight">我的 IP</h2>
 							<div className="flex flex-col items-end gap-1">
 								<SourceBadge source={myIp?.source} />
-								{myIp?.egressV4 && (
+								{myIp?.egressIp && (
 									<span className="rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-										{myIp.egressV4}
-									</span>
-								)}
-								{myIp?.egressV6 && (
-									<span className="rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-										{myIp.egressV6}
+										{myIp.egressIp}
 									</span>
 								)}
 								{latency != null && (

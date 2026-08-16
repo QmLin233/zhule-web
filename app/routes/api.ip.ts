@@ -194,21 +194,19 @@ async function lookupEgressV4FromTrace(colo: string): Promise<string | undefined
 }
 
 /**
- * 获取 Cloudflare Worker 的出口 IPv4 / IPv6（边缘节点出口地址）。
- * api4 / api6 分别强制 IPv4 / IPv6 回显，均校验协议族并按机房缓存 1h；
- * api4 返回非 IPv4 时回退 cdn-cgi/trace。调用量可忽略。
+ * 获取 Cloudflare Worker 的出口 IP（边缘节点出口地址），只取一个：IPv4 优先，无则 IPv6。
+ * api4 / api6 分别强制 IPv4 / IPv6 回显并校验协议族（api4 返回非 IPv4 时回退 cdn-cgi/trace），
+ * 按机房缓存 1h，调用量可忽略。
  */
-async function lookupEgressIps(
-	colo: string | undefined,
-): Promise<{ v4?: string; v6?: string }> {
-	if (!colo) return {};
+async function lookupEgressIp(colo: string | undefined): Promise<string | undefined> {
+	if (!colo) return undefined;
 	const [v4, v6] = await Promise.all([
 		lookupEgressByEcho(colo, "4", "https://api4.ipify.org").then(
 			(ip) => ip ?? lookupEgressV4FromTrace(colo),
 		),
 		lookupEgressByEcho(colo, "6", "https://api6.ipify.org"),
 	]);
-	return { v4, v6 };
+	return v4 ?? v6;
 }
 
 /**
@@ -337,9 +335,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		context.cloudflare.env as unknown as { IPCHAXUN_API_KEY?: string }
 	).IPCHAXUN_API_KEY;
 
-	// 出口 IP v4/v6（边缘节点出口地址，按机房缓存 1h，失败则省略）
+	// 出口 IP（边缘节点出口地址，IPv4 优先、无则 IPv6，按机房缓存 1h，失败则省略）
 	const colo = cf?.colo ?? coloFromRay(request.headers.get("CF-Ray"));
-	const egress = await lookupEgressIps(colo);
+	const egressIp = await lookupEgressIp(colo);
 
 	// 1) ipchaxun.com.cn 主数据源（有 Key 时）：重试 3 次，
 	//    成功就只用它一家，不再调用其他服务（不混合）
@@ -347,11 +345,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
 				const info = await lookupByIpchaxun(ip, apiKey);
-				return Response.json({
-					...info,
-					egressV4: egress.v4,
-					egressV6: egress.v6,
-				});
+				return Response.json({ ...info, egressIp });
 			} catch {
 				// 继续重试，3 次都不行再换其他服务
 			}
@@ -361,11 +355,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	// 2) ipchaxun 不可用 → ip-api 兜底
 	try {
 		const info = await lookupByIpApi(ip);
-		return Response.json({
-			...info,
-			egressV4: egress.v4,
-			egressV6: egress.v6,
-		});
+		return Response.json({ ...info, egressIp });
 	} catch {
 		const info = fromCloudflareEdge(
 			ip,
@@ -373,11 +363,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			request.headers.get("CF-IPCountry"),
 			request.headers.get("CF-Ray"),
 		);
-		return Response.json({
-			...info,
-			egressV4: egress.v4,
-			egressV6: egress.v6,
-		});
+		return Response.json({ ...info, egressIp });
 	}
 }
 
