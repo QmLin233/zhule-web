@@ -287,7 +287,7 @@ export function Game2048() {
 					onClick={restart}
 					className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 				>
-					重新开始 · Restart
+					重新开始<span className="hidden sm:inline"> · Restart</span>
 				</button>
 			</div>
 
@@ -342,7 +342,7 @@ export function Game2048() {
 							onClick={restart}
 							className="mt-4 rounded-lg bg-white px-5 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-200"
 						>
-							再来一局 · Play Again
+							再来一局<span className="hidden sm:inline"> · Play Again</span>
 						</button>
 					</div>
 				)}

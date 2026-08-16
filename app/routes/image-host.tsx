@@ -56,14 +56,18 @@ function ImageCard({ img }: { img: R2Item }) {
 						href={`/api/download?key=${encodeURIComponent(img.key)}`}
 						className="rounded-lg bg-gray-900 px-3 py-1.5 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 					>
-						下载 · Download
+						下载<span className="hidden sm:inline"> Download</span>
 					</a>
 					<button
 						type="button"
 						onClick={() => copyLink(img.url)}
 						className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
 					>
-						{copied ? "已复制 ✓" : "复制链接 · Copy"}
+						{copied ? (
+							"已复制 ✓"
+						) : (
+							<>复制链接<span className="hidden sm:inline"> Copy</span></>
+						)}
 					</button>
 				</div>
 			</div>

@@ -74,7 +74,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 				href="/"
 				className="mt-8 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 			>
-				返回首页 · Back Home
+				返回首页<span className="hidden sm:inline"> · Back Home</span>
 			</a>
 		</main>
 	);
