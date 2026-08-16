@@ -9,14 +9,10 @@ import type { IpInfo } from "~/lib/ip";
 //      成功时只用它一家（不混合调用其他服务）
 //   2. ip-api.com —— ipchaxun 彻底不可用时的整体回退
 //   3. Cloudflare 边缘数据（request.cf）—— 最后兜底
-//  任意 IP 查询：由 ARBITRARY_IP_SOURCE 控制（当前 none，功能已取消）
 //
 // 说明：Location 直接使用 ipchaxun 返回的国家名（中文，不翻译），
 // 前端中文行用 countryCode 映射 + region/city 拼接，不做英文行。
 // ============================================================
-
-/** 任意 IP 查询当前的数据源（扩展点 1：切换方案 2 / 3 的开关；当前取消该功能，置为 none） */
-const ARBITRARY_IP_SOURCE: "none" | "ip-api" | "d1-geolite2" = "none";
 
 /** Cloudflare 请求自带的边缘地理信息（request.cf） */
 type CfGeo = {
@@ -207,7 +203,8 @@ async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 	);
 
 	if (res.status === 401 || res.status === 403) {
-		throw new Error("API Key 无效 · Invalid API key");
+		// 不向客户端暴露「存在 API Key」等内部信息
+		throw new Error("查询失败 · Lookup failed");
 	}
 	if (res.status === 429) {
 		throw new Error("请求过于频繁 · Rate limited");
@@ -246,79 +243,39 @@ async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 	return info;
 }
 
-/**
- * 扩展点 2：「任意 IP 查询」的数据源实现。
- * 方案 2（ip-api.com）已实现；方案 3（d1-geolite2）待接入。
- * 返回 null 表示当前数据源不支持该查询。
- */
-async function lookupArbitraryIp(ip: string): Promise<IpInfo | null> {
-	switch (ARBITRARY_IP_SOURCE) {
-		case "ip-api":
-			return lookupByIpApi(ip);
-		case "d1-geolite2":
-			// TODO(方案3): 查询已导入 GeoLite2 数据的 D1 表
-			return null;
-		case "none":
-		default:
-			return null;
-	}
-}
-
 export async function loader({ request, context }: Route.LoaderArgs) {
-	const url = new URL(request.url);
-	const query = url.searchParams.get("ip")?.trim();
 	// 原始 request.cf 在入口 fetch 已捕获并注入 context（见 workers/app.ts）
 	const cf = context.cf as CfGeo | undefined;
+	const ip = getClientIp(request);
+	const apiKey = (
+		context.cloudflare.env as unknown as { IPCHAXUN_API_KEY?: string }
+	).IPCHAXUN_API_KEY;
 
-	// 我的 IP：优先 ipchaxun.com.cn（需 API Key），ip-api 补充缺失字段，
-	// 都失败时回退 Cloudflare 边缘数据
-	if (!query) {
-		const ip = getClientIp(request);
-		const apiKey = (
-			context.cloudflare.env as unknown as { IPCHAXUN_API_KEY?: string }
-		).IPCHAXUN_API_KEY;
-
-		// 1) ipchaxun.com.cn 主数据源（有 Key 时）：重试 3 次，
-		//    成功就只用它一家，不再调用其他服务（不混合）
-		if (apiKey) {
-			for (let attempt = 0; attempt < 3; attempt++) {
-				try {
-					return Response.json(await lookupByIpchaxun(ip, apiKey));
-				} catch {
-					// 继续重试，3 次都不行再换其他服务
-				}
+	// 1) ipchaxun.com.cn 主数据源（有 Key 时）：重试 3 次，
+	//    成功就只用它一家，不再调用其他服务（不混合）
+	if (apiKey) {
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				return Response.json(await lookupByIpchaxun(ip, apiKey));
+			} catch {
+				// 继续重试，3 次都不行再换其他服务
 			}
 		}
-
-		// 2) ipchaxun 不可用 → ip-api 兜底
-		try {
-			return Response.json(await lookupByIpApi(ip));
-		} catch {
-			return Response.json(
-				fromCloudflareEdge(
-					ip,
-					cf,
-					request.headers.get("CF-IPCountry"),
-					request.headers.get("CF-Ray"),
-				),
-			);
-		}
 	}
 
-	// 查询任意 IP（支持 IPv4 / IPv6）：由当前数据源决定
+	// 2) ipchaxun 不可用 → ip-api 兜底
 	try {
-		const info = await lookupArbitraryIp(query);
-		if (info) {
-			return Response.json(info);
-		}
-	} catch (e) {
-		const msg = e instanceof Error ? e.message : "查询失败 · Lookup failed";
-		return Response.json({ error: msg }, { status: 400 });
+		return Response.json(await lookupByIpApi(ip));
+	} catch {
+		return Response.json(
+			fromCloudflareEdge(
+				ip,
+				cf,
+				request.headers.get("CF-IPCountry"),
+				request.headers.get("CF-Ray"),
+			),
+		);
 	}
-	return Response.json(
-		{ error: "任意 IP 查询功能尚未启用，请稍后再试 · Arbitrary IP lookup coming soon" },
-		{ status: 501 },
-	);
 }
 
 

@@ -9,7 +9,7 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Game() {
 	return (
-		<PageLayout title="游戏" subtitle="GAME" maxWidth="max-w-md">
+		<PageLayout title="游戏" maxWidth="max-w-2xl">
 			<Game2048 />
 		</PageLayout>
 	);

@@ -56,18 +56,14 @@ function ImageCard({ img }: { img: R2Item }) {
 						href={`/api/download?key=${encodeURIComponent(img.key)}`}
 						className="rounded-lg bg-gray-900 px-3 py-1.5 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 					>
-						下载<span className="hidden sm:inline"> Download</span>
+						下载
 					</a>
 					<button
 						type="button"
 						onClick={() => copyLink(img.url)}
-						className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+						className="rounded-lg bg-gray-100 px-3 py-1.5 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
 					>
-						{copied ? (
-							"已复制 ✓"
-						) : (
-							<>复制链接<span className="hidden sm:inline"> Copy</span></>
-						)}
+						{copied ? "完成" : "链接"}
 					</button>
 				</div>
 			</div>
@@ -79,23 +75,20 @@ export default function ImageHost() {
 	const { images } = useLoaderData<typeof loader>();
 
 	return (
-		<PageLayout title="图床" subtitle="IMAGE HOST" maxWidth="max-w-4xl">
+		<PageLayout title="图床" maxWidth="max-w-4xl">
 			<section className="mt-10">
 				<div className="flex items-center justify-between">
 					<h2 className="text-lg font-medium tracking-tight">
-						全部图片{" "}
-						<span className="ml-1 text-sm font-normal text-gray-400 dark:text-gray-500">
-							Images
-						</span>
+						全部图片
 					</h2>
 					<span className="text-xs text-gray-400 dark:text-gray-500">
-						{images.length} 张 · items
+						{images.length} 张
 					</span>
 				</div>
 
 				{images.length === 0 ? (
 					<div className="mt-3 rounded-2xl border border-gray-200 bg-white/70 p-10 text-center text-sm text-gray-400 dark:border-gray-800 dark:bg-gray-900/70 dark:text-gray-500">
-						暂无图片 · No images yet
+						暂无图片
 					</div>
 				) : (
 					<div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">

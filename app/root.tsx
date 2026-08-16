@@ -29,6 +29,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
+				{/* 渲染前应用主题，避免首帧闪烁（深色用户看到浅色） */}
+				<script
+					dangerouslySetInnerHTML={{
+						__html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.add("dark")}}catch(e){}})();`,
+					}}
+				/>
 				<Meta />
 				<Links />
 			</head>
@@ -72,9 +78,9 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 			)}
 			<a
 				href="/"
-				className="mt-8 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+				className="mt-8 rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 			>
-				返回首页<span className="hidden sm:inline"> · Back Home</span>
+				返回首页
 			</a>
 		</main>
 	);

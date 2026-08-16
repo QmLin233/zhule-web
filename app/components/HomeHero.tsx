@@ -17,8 +17,12 @@ export function HomeHero() {
 			</main>
 
 			{/* 底部信息 */}
-			<footer className="pb-8 text-center text-sm text-gray-400 dark:text-gray-500">
-				<p>QQ Group: 1090099236　|　Email: qmlin233@qq.com</p>
+			<footer className="px-4 pb-8 text-center text-sm text-gray-400 dark:text-gray-500">
+				<p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+					<span>QQ Group: 1090099236</span>
+					<span className="text-gray-300 dark:text-gray-700">|</span>
+					<span>Email: qmlin233@qq.com</span>
+				</p>
 			</footer>
 		</div>
 	);

@@ -7,12 +7,10 @@ import { NavMenu } from "./NavMenu";
  */
 export function PageLayout({
 	title,
-	subtitle,
 	maxWidth = "max-w-3xl",
 	children,
 }: {
 	title: string;
-	subtitle: string;
 	maxWidth?: string;
 	children: ReactNode;
 }) {
@@ -22,9 +20,6 @@ export function PageLayout({
 			<main className={`mx-auto w-full ${maxWidth} flex-1 px-6 py-10`}>
 				<header className="text-center">
 					<h1 className="text-4xl font-semibold tracking-tight">{title}</h1>
-					<p className="mt-2 text-sm tracking-[0.3em] text-gray-400 dark:text-gray-500">
-						{subtitle}
-					</p>
 				</header>
 				{children}
 			</main>

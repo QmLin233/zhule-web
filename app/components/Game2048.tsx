@@ -21,9 +21,14 @@ type State = {
 	merged: number[];
 	/** 本轮新出现的方块 id（播放 appear 动画） */
 	added: number[];
+	/** 本次移动的最大位移（格数），用于按距离自适应过渡时长 */
+	moveDist: number;
 };
 
-type Action = { type: "move"; dir: Dir } | { type: "restart" };
+type Action =
+	| { type: "move"; dir: Dir }
+	| { type: "restart" }
+	| { type: "boot" };
 
 let uid = 1;
 const nextId = () => uid++;
@@ -97,12 +102,19 @@ function findFarthestPosition(
 function move(
 	board: Board,
 	dir: Dir,
-): { board: Board; moved: boolean; gained: number; merged: number[] } {
+): {
+	board: Board;
+	moved: boolean;
+	gained: number;
+	merged: number[];
+	maxDist: number;
+} {
 	const vector = VECTOR[dir];
 	const traversals = buildTraversals(vector);
 	const next = cloneBoard(board);
 	let moved = false;
 	let gained = 0;
+	let maxDist = 0;
 	const merged: number[] = [];
 
 	traversals.x.forEach((x) => {
@@ -133,11 +145,14 @@ function move(
 				next[farthest.y][farthest.x] = { ...tile, x: farthest.x, y: farthest.y };
 			}
 
+			// 记录本次位移（格数），长距离用更久过渡避免“飞/坠”感
+			const dist = Math.abs(landed.x - cell.x) + Math.abs(landed.y - cell.y);
+			if (dist > maxDist) maxDist = dist;
 			if (landed.x !== cell.x || landed.y !== cell.y) moved = true;
 		});
 	});
 
-	return { board: next, moved, gained, merged };
+	return { board: next, moved, gained, merged, maxDist };
 }
 
 /** 是否还有可移动 / 可合并的格子 */
@@ -153,7 +168,8 @@ function movesAvailable(board: Board): boolean {
 	return false;
 }
 
-function initState(): State {
+/** 生成初始两枚随机方块（仅在客户端调用，避免 SSR 水合不一致） */
+function initialTiles(): State {
 	let board = emptyBoard();
 	const added: number[] = [];
 	for (let i = 0; i < 2; i++) {
@@ -161,13 +177,29 @@ function initState(): State {
 		board = r.board;
 		added.push(r.addedId);
 	}
-	return { board, score: 0, over: false, won: false, merged: [], added };
+	return { board, score: 0, over: false, won: false, merged: [], added, moveDist: 0 };
+}
+
+/** SSR 与客户端首帧共用确定性空棋盘；随机方块在挂载后由 boot 生成 */
+function initState(): State {
+	return {
+		board: emptyBoard(),
+		score: 0,
+		over: false,
+		won: false,
+		merged: [],
+		added: [],
+		moveDist: 0,
+	};
 }
 
 function reducer(state: State, action: Action): State {
-	if (action.type === "restart") return initState();
+	if (action.type === "restart" || action.type === "boot") return initialTiles();
 
-	const { board: movedBoard, moved: didMove, gained, merged } = move(state.board, action.dir);
+	const { board: movedBoard, moved: didMove, gained, merged, maxDist } = move(
+		state.board,
+		action.dir,
+	);
 	if (!didMove) return state;
 
 	const { board, addedId } = addRandomTile(movedBoard);
@@ -178,6 +210,7 @@ function reducer(state: State, action: Action): State {
 		won: state.won || board.some((row) => row.some((t) => t?.value === 2048)),
 		merged,
 		added: [addedId],
+		moveDist: maxDist,
 	};
 }
 
@@ -207,11 +240,17 @@ export function Game2048() {
 	const [elapsed, setElapsed] = useState(0);
 	const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-	// 计时：每秒 +1
+	// 挂载后生成初始方块（首帧为空棋盘，SSR/客户端一致，避免水合警告）
 	useEffect(() => {
+		dispatch({ type: "boot" });
+	}, []);
+
+	// 计时：每秒 +1（游戏结束 / 通关后暂停）
+	useEffect(() => {
+		if (state.over || state.won) return;
 		const t = window.setInterval(() => setElapsed((s) => s + 1), 1000);
 		return () => window.clearInterval(t);
-	}, []);
+	}, [state.over, state.won]);
 
 	const restart = () => {
 		dispatch({ type: "restart" });
@@ -267,16 +306,14 @@ export function Game2048() {
 	const ss = String(elapsed % 60).padStart(2, "0");
 
 	return (
-		<div className="mt-10 select-none">
+		<div className="mx-auto mt-10 w-fit select-none">
 			{/* 顶部：分数 + 时间 + 重新开始 */}
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex gap-3">
 					<div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/70">
-						<p className="text-xs text-gray-400 dark:text-gray-500">分数 · Score</p>
 						<p className="text-xl font-semibold tabular-nums">{state.score}</p>
 					</div>
 					<div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/70">
-						<p className="text-xs text-gray-400 dark:text-gray-500">时间 · Time</p>
 						<p className="text-xl font-semibold tabular-nums">
 							{mm}:{ss}
 						</p>
@@ -285,15 +322,16 @@ export function Game2048() {
 				<button
 					type="button"
 					onClick={restart}
-					className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+					className="rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 				>
-					重新开始<span className="hidden sm:inline"> · Restart</span>
+					重新开始
 				</button>
 			</div>
 
 			{/* 棋盘（固定尺寸 + transform 定位，原版方案） */}
 			<div
 				className="game2048-board relative mt-4 rounded-2xl bg-[#bfb5a8] p-3 shadow-sm dark:bg-gray-900 dark:shadow-none"
+				style={{ "--move-dur": `${100 + state.moveDist * 30}ms` } as React.CSSProperties}
 				onTouchStart={onTouchStart}
 				onTouchEnd={onTouchEnd}
 			>
@@ -340,16 +378,16 @@ export function Game2048() {
 						<button
 							type="button"
 							onClick={restart}
-							className="mt-4 rounded-lg bg-white px-5 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-200"
+							className="mt-4 rounded-lg bg-white px-5 py-2 text-center text-sm font-medium text-gray-900 transition-colors hover:bg-gray-200"
 						>
-							再来一局<span className="hidden sm:inline"> · Play Again</span>
+							再来一局
 						</button>
 					</div>
 				)}
 			</div>
 
 			<p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
-				方向键 / WASD / 滑动 移动方块
+				方向键 / WASD / 滑动
 			</p>
 		</div>
 	);

@@ -40,6 +40,11 @@ export async function listR2Objects(
 				const name = o.key.slice(prefix.length);
 				return name.length > 0 && !name.endsWith("/");
 			})
+			// 按真实上传时间倒序（同一天上传也能稳定排序）
+			.sort(
+				(a, b) =>
+					(b.uploaded?.getTime() ?? 0) - (a.uploaded?.getTime() ?? 0),
+			)
 			.map((o) => ({
 				key: o.key,
 				name: o.key.slice(prefix.length),
@@ -47,7 +52,6 @@ export async function listR2Objects(
 				uploadedAt: o.uploaded ? new Date(o.uploaded).toISOString().slice(0, 10) : "",
 				url: `${baseUrl}/${o.key}`,
 			}));
-		items.sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
 		return items;
 	} catch {
 		return [];

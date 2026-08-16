@@ -21,10 +21,21 @@ const requestHandler = createRequestHandler(
 );
 
 export default {
-	fetch(request, env, ctx) {
-		return requestHandler(request, {
+	async fetch(request, env, ctx) {
+		const response = await requestHandler(request, {
 			cloudflare: { env, ctx },
 			cf: (request as unknown as { cf?: Record<string, unknown> }).cf,
+		});
+
+		// 统一安全响应头（HTML 与 API 均生效）
+		const headers = new Headers(response.headers);
+		headers.set("X-Content-Type-Options", "nosniff");
+		headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+		headers.set("X-Frame-Options", "DENY");
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers,
 		});
 	},
 } satisfies ExportedHandler<Env>;

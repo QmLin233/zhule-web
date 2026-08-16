@@ -41,25 +41,28 @@ body {
 }
 
 .tile-new {
-	animation: tile-appear 0.2s ease 0.1s;
+	/* both：延迟期间保持起始帧（透明），移动结束后再从起始大小长出，避免先闪一下 */
+	animation: tile-appear 0.2s ease var(--move-dur, 100ms) both;
 }
 
 .tile-merged {
-	animation: tile-pop 0.2s ease 0.1s;
+	animation: tile-pop 0.2s ease var(--move-dur, 100ms) both;
 }
 
 /* 2048 固定尺寸棋盘（transform 定位，原版方案） */
 .game2048-board {
 	--gap: 12px; /* 内间距（格子间） */
 	--pad: var(--gap); /* 外边缘间距与内边缘一致 */
-	--step: 102px; /* 桌面：格子 90px + 间距 12px */
+	/* 自适应尺寸：桌面格子随视口缩放（上限 128px），避免过大或溢出 */
+	--step: min(128px, 22vw, 52vh);
 	width: calc(4 * var(--step) - var(--gap) + 2 * var(--pad));
 	height: calc(4 * var(--step) - var(--gap) + 2 * var(--pad));
 }
 
 @media (max-width: 520px) {
 	.game2048-board {
-		--step: 72px; /* 移动：格子 60px + 间距 12px */
+		/* 移动：格子上限 76px，同时随视口宽/高自适应 */
+		--step: min(76px, 21vw, 44vh);
 	}
 }
 
@@ -73,5 +76,6 @@ body {
 		calc(var(--pad, 0px) + var(--x, 0) * var(--step)),
 		calc(var(--pad, 0px) + var(--y, 0) * var(--step))
 	);
-	transition: transform 0.1s ease-in-out;
+	/* 过渡时长随位移自适应（--move-dur 由棋盘下发）：短距离轻快，长距离不“飞/坠” */
+	transition: transform var(--move-dur, 100ms) ease-in-out;
 }

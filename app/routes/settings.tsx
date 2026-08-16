@@ -34,13 +34,13 @@ export default function Settings() {
 	}, [lang]);
 
 	return (
-		<PageLayout title="设置" subtitle="SETTINGS">
+		<PageLayout title="设置">
 			<div className="mt-10">
 				<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
 						{/* 语言设置项 */}
 						<div className="flex items-center justify-between gap-4">
 							<p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-								语言 · Language
+								语言
 							</p>
 							<div className="flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5 dark:border-gray-700 dark:bg-gray-800">
 								<button

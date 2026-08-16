@@ -16,7 +16,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	const url = new URL(request.url);
 	const key = url.searchParams.get("key") ?? "";
 
-	if (!ALLOWED_PREFIXES.some((p) => key.startsWith(p))) {
+	// 前缀白名单，并排除恰好等于前缀的 0 字节文件夹占位对象
+	if (!ALLOWED_PREFIXES.some((p) => key.startsWith(p) && key.length > p.length)) {
 		return new Response("Forbidden", { status: 403 });
 	}
 
@@ -27,11 +28,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 	const headers = new Headers();
 	obj.writeHttpMetadata(headers);
-	// 附件下载 + 中文文件名（RFC 5987）
+	// 附件下载 + 中文文件名（RFC 5987），附 ASCII 兜底兼容老浏览器
 	const name = key.split("/").pop() ?? "download";
+	const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
 	headers.set(
 		"Content-Disposition",
-		`attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+		`attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`,
 	);
 	headers.set("Cache-Control", "public, max-age=86400");
 

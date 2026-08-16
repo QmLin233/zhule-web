@@ -5,11 +5,11 @@
 ## 功能
 
 - **首页**：逐乐
-- **下载**（`/download`）：从 R2 桶 `zhule` 的 `download/` 前缀列出文件并提供下载直链（`https://cdn.zhule.org`）
-- **图床**（`/image-host`）：从 R2 桶 `zhule` 的 `image/` 前缀列出图片，支持复制链接
-- **IP 查询**（`/ip`）：显示本机 IP、属地、运营商、ASN、时区、经纬度、延迟
-- **设置**（`/settings`）：语言切换（中文 / English）
-- **游戏 / 更多**：开发中占位页
+- **下载**（`/download`）：从 R2 桶 `zhule` 的 `download/` 前缀列出文件，经 `/api/download` 强制附件下载
+- **图床**（`/image-host`）：从 R2 桶 `zhule` 的 `image/` 前缀列出图片，支持复制链接与下载
+- **IP 查询**（`/ip`）：显示本机 IP、属地、运营商、ASN、延迟
+- **游戏**（`/game`）：2048
+- **设置 / 更多**：建设中
 
 ## 目录结构
 
