@@ -4,6 +4,7 @@ import type { IpInfo } from "~/lib/ip";
 import { locationZh } from "~/lib/geo";
 import { PageLayout } from "../components/PageLayout";
 import { pageMeta } from "../lib/meta";
+import { useI18n } from "../lib/i18n";
 
 export function meta({}: Route.MetaArgs) {
 	return pageMeta("IP 查询");
@@ -51,10 +52,11 @@ function SourceBadge({ source }: { source?: string }) {
 }
 
 function Loading() {
+	const { t } = useI18n();
 	return (
 		<div className="flex items-center gap-3 py-6 text-sm text-gray-400 dark:text-gray-500">
 			<span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-500 dark:border-gray-700 dark:border-t-gray-300" />
-			正在获取… · Loading…
+			{t("ip.loading")}
 		</div>
 	);
 }
@@ -82,20 +84,21 @@ export default function Ip() {
 	const [myError, setMyError] = useState("");
 	const [latency, setLatency] = useState<number | null>(null);
 	const [myIpv6, setMyIpv6] = useState<string | null>(null);
+	const { t } = useI18n();
 
 	// 进入页面自动获取我的 IP
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
 			try {
-				const data = await fetchIpInfo("/api/ip", "获取失败 · Load failed");
+				const data = await fetchIpInfo("/api/ip", t("ip.loadFailed"));
 				if (!cancelled) {
 					setMyIp(data);
 					setMyState("success");
 				}
 			} catch (e) {
 				if (!cancelled) {
-					setMyError(e instanceof Error ? e.message : "获取失败 · Load failed");
+					setMyError(e instanceof Error ? e.message : t("ip.loadFailed"));
 					setMyState("error");
 				}
 			}
@@ -138,12 +141,12 @@ export default function Ip() {
 	}, []);
 
 	return (
-		<PageLayout title="IP 查询">
+		<PageLayout title={t("ip.title")}>
 			<div className="mt-10 space-y-6">
 					{/* 我的 IP */}
 					<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
 						<div className="flex items-center justify-between">
-							<h2 className="text-lg font-medium tracking-tight">我的 IP</h2>
+							<h2 className="text-lg font-medium tracking-tight">{t("ip.myIp")}</h2>
 							<div className="flex flex-col items-end gap-1">
 								<SourceBadge source={myIp?.source} />
 								{myIp?.egressIp && (

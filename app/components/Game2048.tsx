@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useI18n } from "../lib/i18n";
 
 const SIZE = 4;
 type Dir = "left" | "right" | "up" | "down";
@@ -239,6 +240,7 @@ export function Game2048() {
 	const [state, dispatch] = useReducer(reducer, undefined, initState);
 	const [elapsed, setElapsed] = useState(0);
 	const touchStart = useRef<{ x: number; y: number } | null>(null);
+	const { t } = useI18n();
 
 	// 挂载后生成初始方块（首帧为空棋盘，SSR/客户端一致，避免水合警告）
 	useEffect(() => {
@@ -324,7 +326,7 @@ export function Game2048() {
 					onClick={restart}
 					className="rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 				>
-					重新开始
+					{t("game.restart")}
 				</button>
 			</div>
 
@@ -370,24 +372,24 @@ export function Game2048() {
 				{(state.over || state.won) && (
 					<div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-black/40 text-white backdrop-blur-sm">
 						<p className="text-3xl font-semibold">
-							{state.won ? "恭喜通关！🎉" : "游戏结束"}
+							{state.won ? t("game.won") + " 🎉" : t("game.over")}
 						</p>
 						<p className="mt-2 text-sm text-white/70">
-							{state.won ? "你拼出了 2048" : `得分 ${state.score} · 用时 ${mm}:${ss}`}
+							{state.won ? t("game.won") : `${t("game.score")} ${state.score} · ${mm}:${ss}`}
 						</p>
 						<button
 							type="button"
 							onClick={restart}
 							className="mt-4 rounded-lg bg-white px-5 py-2 text-center text-sm font-medium text-gray-900 transition-colors hover:bg-gray-200"
 						>
-							再来一局
+							{t("game.restart")}
 						</button>
 					</div>
 				)}
 			</div>
 
 			<p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
-				方向键 / WASD / 滑动
+				{t("game.controls")}
 			</p>
 		</div>
 	);

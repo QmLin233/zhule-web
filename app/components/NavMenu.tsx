@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { useI18n } from "../lib/i18n";
 
 const menuItems = [
-	{ to: "/download", label: "下载", en: "Download" },
-	{ to: "/game", label: "游戏", en: "Game" },
-	{ to: "/ip", label: "IP 查询", en: "IP Lookup" },
-	{ to: "/image-host", label: "图床", en: "Image Host" },
-	{ to: "/more", label: "更多", en: "More" },
-	{ to: "/settings", label: "设置", en: "Settings" },
+	{ to: "/download", labelKey: "nav.download" },
+	{ to: "/game", labelKey: "nav.game" },
+	{ to: "/ip", labelKey: "nav.ip" },
+	{ to: "/image-host", labelKey: "nav.imageHost" },
+	{ to: "/more", labelKey: "nav.more" },
+	{ to: "/settings", labelKey: "nav.settings" },
 ];
 
 export function NavMenu() {
 	const [open, setOpen] = useState(false);
 	const [dark, setDark] = useState(false);
+	const { t } = useI18n();
 
 	// 初始化主题：优先读取 localStorage，其次跟随系统偏好
 	useEffect(() => {
@@ -46,7 +48,7 @@ export function NavMenu() {
 				{/* 回到主页（双圆圈 logo） */}
 				<Link
 					to="/"
-					aria-label="回到主页"
+					aria-label={t("nav.home")}
 					className="relative flex h-9 w-9 items-center justify-center text-gray-900 transition-opacity hover:opacity-70 dark:text-gray-100"
 				>
 					<svg
@@ -80,7 +82,7 @@ export function NavMenu() {
 						type="button"
 						onClick={() => setOpen((v) => !v)}
 						className="flex h-9 w-9 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
-						aria-label="菜单"
+						aria-label={t("nav.menu")}
 						aria-expanded={open}
 					>
 						{/* 三横杠图标 */}
@@ -116,10 +118,7 @@ export function NavMenu() {
 										onClick={() => setOpen(false)}
 										className="flex items-baseline justify-between px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
 									>
-										<span>{item.label}</span>
-										<span className="text-xs text-gray-400 dark:text-gray-500">
-											{item.en}
-										</span>
+										<span>{t(item.labelKey)}</span>
 									</Link>
 								))}
 							</div>
@@ -131,7 +130,7 @@ export function NavMenu() {
 					<button
 						type="button"
 						onClick={toggleTheme}
-						aria-label={dark ? "切换到白天模式" : "切换到夜间模式"}
+						aria-label={dark ? t("nav.switchToLight") : t("nav.switchToDark")}
 						className="flex h-9 w-9 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
 					>
 						{dark ? (

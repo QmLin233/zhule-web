@@ -2,45 +2,23 @@ import { useEffect, useState } from "react";
 import type { Route } from "./+types/settings";
 import { PageLayout } from "../components/PageLayout";
 import { pageMeta } from "../lib/meta";
+import { useI18n, type Lang } from "../lib/i18n";
 
 export function meta({}: Route.MetaArgs) {
 	return pageMeta("设置");
 }
 
-type Lang = "zh" | "en";
-
 export default function Settings() {
-	const [lang, setLang] = useState<Lang>("zh");
-
-	// 初始化语言：优先读取 localStorage
-	useEffect(() => {
-		let stored: string | null = null;
-		try {
-			stored = localStorage.getItem("lang");
-		} catch {
-			// 浏览器禁用存储时忽略
-		}
-		if (stored === "zh" || stored === "en") setLang(stored);
-	}, []);
-
-	// 同步语言到 <html lang> 并持久化
-	useEffect(() => {
-		document.documentElement.lang = lang;
-		try {
-			localStorage.setItem("lang", lang);
-		} catch {
-			// 浏览器禁用存储时忽略
-		}
-	}, [lang]);
+	const { lang, setLang, t } = useI18n();
 
 	return (
-		<PageLayout title="设置">
+		<PageLayout title={t("settings.title")}>
 			<div className="mt-10">
 				<section className="rounded-2xl border border-gray-200 bg-white/70 p-6 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
 						{/* 语言设置项 */}
 						<div className="flex items-center justify-between gap-4">
 							<p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-								语言
+								{t("settings.language")}
 							</p>
 							<div className="flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5 dark:border-gray-700 dark:bg-gray-800">
 								<button
