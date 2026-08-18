@@ -29,7 +29,7 @@ export default function Download() {
 			<section className="mt-10">
 					{files.length === 0 ? (
 						<div className="mt-3 rounded-2xl border border-gray-200 bg-white/70 p-10 text-center text-sm text-gray-400 dark:border-gray-800 dark:bg-gray-900/70 dark:text-gray-500">
-							0 items
+							{t("download.empty")}
 						</div>
 					) : (
 						<div className="mt-3 space-y-2">

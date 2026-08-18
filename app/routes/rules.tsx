@@ -31,10 +31,10 @@ export default function Rules() {
 				if (data.success) {
 					setRules(data.data);
 				} else {
-					setError(data.error || "获取公告失败");
+					setError(data.error || t("admin.fetchError"));
 				}
-			} catch (err) {
-				setError("网络错误");
+			} catch {
+					setError(t("admin.networkError"));
 			} finally {
 				setLoading(false);
 			}
@@ -75,7 +75,7 @@ export default function Rules() {
 											{rule.title}
 											{!!rule.important && (
 												<span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-													重要
+													{t("admin.important")}
 												</span>
 											)}
 										</h2>

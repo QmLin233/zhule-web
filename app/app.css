@@ -42,11 +42,11 @@ body {
 
 .tile-new {
 	/* both：延迟期间保持起始帧（透明），移动结束后再从起始大小长出，避免先闪一下 */
-	animation: tile-appear 0.2s ease var(--move-dur, 100ms) both;
+	animation: tile-appear 0.1s ease var(--move-dur, 50ms) both;
 }
 
 .tile-merged {
-	animation: tile-pop 0.2s ease var(--move-dur, 100ms) both;
+	animation: tile-pop 0.1s ease var(--move-dur, 50ms) both;
 }
 
 /* 2048 固定尺寸棋盘（transform 定位，原版方案） */
@@ -77,5 +77,5 @@ body {
 		calc(var(--pad, 0px) + var(--y, 0) * var(--step))
 	);
 	/* 过渡时长随位移自适应（--move-dur 由棋盘下发）：短距离轻快，长距离不“飞/坠” */
-	transition: transform var(--move-dur, 100ms) ease-in-out;
+	transition: transform var(--move-dur, 50ms) ease-in-out;
 }

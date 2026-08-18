@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
 import type { Route } from "./+types/settings";
 import { PageLayout } from "../components/PageLayout";
 import { pageMeta } from "../lib/meta";
-import { useI18n, type Lang } from "../lib/i18n";
+import { useI18n } from "../lib/i18n";
 
 export function meta({}: Route.MetaArgs) {
 	return pageMeta("设置");

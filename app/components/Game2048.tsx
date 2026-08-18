@@ -333,7 +333,7 @@ export function Game2048() {
 			{/* 棋盘（固定尺寸 + transform 定位，原版方案） */}
 			<div
 				className="game2048-board relative mt-4 rounded-2xl bg-[#bfb5a8] p-3 shadow-sm dark:bg-gray-900 dark:shadow-none"
-				style={{ "--move-dur": `${100 + state.moveDist * 30}ms` } as React.CSSProperties}
+				style={{ "--move-dur": `${50 + state.moveDist * 15}ms` } as React.CSSProperties}
 				onTouchStart={onTouchStart}
 				onTouchEnd={onTouchEnd}
 			>

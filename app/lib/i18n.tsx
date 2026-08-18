@@ -12,8 +12,6 @@ interface Translations {
 const resources: Record<Lang, Translations> = {
   zh: {
     // 通用
-    "app.title": "逐乐",
-    "app.description": "逐乐 ZHU LE",
     "app.subtitle": "ZHU LE",
     
     // 导航
@@ -24,7 +22,6 @@ const resources: Record<Lang, Translations> = {
     "nav.imageHost": "图床",
     "nav.rules": "公告",
     "nav.more": "更多",
-    "nav.admin": "管理",
     "nav.settings": "设置",
     "nav.menu": "菜单",
     "nav.switchToLight": "切换到白天模式",
@@ -33,14 +30,17 @@ const resources: Record<Lang, Translations> = {
     // 设置页面
     "settings.title": "设置",
     "settings.language": "语言",
-    "settings.theme": "主题",
-    "settings.theme.light": "浅色",
-    "settings.theme.dark": "深色",
-    "settings.theme.system": "跟随系统",
     
     // 下载页面
     "download.title": "下载",
     "download.downloadBtn": "下载",
+    "download.empty": "暂无文件",
+    
+    // 图床页面
+    "imageHost.title": "图床",
+    "imageHost.copyLink": "链接",
+    "imageHost.copied": "完成",
+    "imageHost.empty": "暂无图片",
     
     // 占位页
     "placeholder.developing": "功能开发中，敬请期待",
@@ -48,11 +48,9 @@ const resources: Record<Lang, Translations> = {
     // 游戏页面
     "game.title": "游戏",
     "game.score": "分数",
-    "game.best": "最高分",
     "game.restart": "重新开始",
     "game.over": "游戏结束！",
     "game.won": "你赢了！",
-    "game.continue": "继续游戏",
     "game.controls": "方向键 / WASD / 滑动",
     
     // IP 查询页面
@@ -60,25 +58,16 @@ const resources: Record<Lang, Translations> = {
     "ip.myIp": "我的 IP",
     "ip.loading": "正在获取…",
     "ip.loadFailed": "获取失败",
-    "ip.location": "位置",
-    "ip.isp": "运营商",
-    "ip.asn": "ASN",
-    
-    // 图床页面
-    "imageHost.title": "图床",
-    "imageHost.copyLink": "链接",
-    "imageHost.copied": "完成",
+    "ip.none": "无",
     
     // 更多页面
     "more.title": "更多",
     
-    // 群规页面
+    // 公告页面
     "rules.title": "公告",
-    "rules.subtitle": "公告与条文",
     "rules.empty": "暂无公告",
     
     // 管理后台
-    "admin.title": "管理后台",
     "admin.login": "登录",
     "admin.logout": "登出",
     "admin.username": "账号",
@@ -87,6 +76,7 @@ const resources: Record<Lang, Translations> = {
     "admin.networkError": "网络错误",
     "admin.fetchError": "获取公告失败",
     "admin.createError": "创建公告失败",
+    "admin.editError": "编辑公告失败",
     "admin.deleteError": "删除公告失败",
     "admin.deleteConfirm": "确定要删除这条公告吗？",
     "admin.subtitle": "管理公告与内容",
@@ -108,8 +98,6 @@ const resources: Record<Lang, Translations> = {
   },
   en: {
     // General
-    "app.title": "Zhu Le",
-    "app.description": "ZHU LE",
     "app.subtitle": "ZHU LE",
     
     // Navigation
@@ -120,7 +108,19 @@ const resources: Record<Lang, Translations> = {
     "nav.imageHost": "Image Host",
     "nav.rules": "Rules",
     "nav.more": "More",
-    "nav.admin": "Admin",
+    "nav.settings": "Settings",
+    "nav.menu": "Menu",
+    "nav.switchToLight": "Switch to light mode",
+    "nav.switchToDark": "Switch to dark mode",
+    
+    // Navigation
+    "nav.home": "Home",
+    "nav.download": "Download",
+    "nav.game": "Game",
+    "nav.ip": "IP Lookup",
+    "nav.imageHost": "Image Host",
+    "nav.rules": "Rules",
+    "nav.more": "More",
     "nav.settings": "Settings",
     "nav.menu": "Menu",
     "nav.switchToLight": "Switch to light mode",
@@ -129,14 +129,11 @@ const resources: Record<Lang, Translations> = {
     // Settings page
     "settings.title": "Settings",
     "settings.language": "Language",
-    "settings.theme": "Theme",
-    "settings.theme.light": "Light",
-    "settings.theme.dark": "Dark",
-    "settings.theme.system": "System",
     
     // Download page
     "download.title": "Download",
     "download.downloadBtn": "Download",
+    "download.empty": "No files yet",
     
     // Placeholder page
     "placeholder.developing": "Coming soon",
@@ -144,11 +141,9 @@ const resources: Record<Lang, Translations> = {
     // Game page
     "game.title": "Game",
     "game.score": "Score",
-    "game.best": "Best",
     "game.restart": "Restart",
     "game.over": "Game Over!",
     "game.won": "You Win!",
-    "game.continue": "Continue",
     "game.controls": "Arrow keys / WASD / Swipe",
     
     // IP lookup page
@@ -156,25 +151,22 @@ const resources: Record<Lang, Translations> = {
     "ip.myIp": "My IP",
     "ip.loading": "Loading…",
     "ip.loadFailed": "Load failed",
-    "ip.location": "Location",
-    "ip.isp": "ISP",
-    "ip.asn": "ASN",
+    "ip.none": "None",
     
     // Image host page
     "imageHost.title": "Image Host",
     "imageHost.copyLink": "Link",
     "imageHost.copied": "Done",
+    "imageHost.empty": "No images yet",
     
     // More page
     "more.title": "More",
     
     // Rules page
     "rules.title": "Rules",
-    "rules.subtitle": "Group rules and guidelines",
     "rules.empty": "No rules yet",
     
     // Admin
-    "admin.title": "Admin Panel",
     "admin.login": "Login",
     "admin.logout": "Logout",
     "admin.username": "Username",
@@ -183,6 +175,7 @@ const resources: Record<Lang, Translations> = {
     "admin.networkError": "Network error",
     "admin.fetchError": "Failed to fetch announcements",
     "admin.createError": "Failed to create announcement",
+    "admin.editError": "Failed to edit announcement",
     "admin.deleteError": "Failed to delete announcement",
     "admin.deleteConfirm": "Are you sure you want to delete this announcement?",
     "admin.subtitle": "Manage rules and content",

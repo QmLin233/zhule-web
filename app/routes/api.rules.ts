@@ -50,6 +50,36 @@ export async function action({ request, context }: Route.ActionArgs) {
 		}
 	}
 
+	// 编辑
+	if (request.method === "PUT") {
+		try {
+			const { id, title, content, important } = await request.json() as {
+				id?: string;
+				title?: string;
+				content?: string;
+				important?: boolean;
+			};
+
+			if (!id || !title || !content) {
+				return Response.json({ success: false, error: "缺少必要字段" }, { status: 400 });
+			}
+
+			const now = new Date().toISOString();
+			const result = await DB.prepare(
+				"UPDATE rules SET title = ?, content = ?, important = ?, updatedAt = ? WHERE id = ?"
+			).bind(title, content, important ? 1 : 0, now, id).run();
+
+			if (result.meta.changes === 0) {
+				return Response.json({ success: false, error: "公告不存在" }, { status: 404 });
+			}
+
+			return Response.json({ success: true });
+		} catch (error) {
+			console.error("编辑公告失败:", error);
+			return Response.json({ success: false, error: "编辑公告失败" }, { status: 500 });
+		}
+	}
+
 	// 创建
 	if (request.method !== "POST") {
 		return Response.json({ success: false, error: "不支持的请求方法" }, { status: 405 });

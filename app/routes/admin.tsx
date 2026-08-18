@@ -86,7 +86,7 @@ export default function Admin() {
 			} else {
 				setError(data.error || t("admin.fetchError"));
 			}
-		} catch (err) {
+		} catch {
 			setError(t("admin.networkError"));
 		} finally {
 			setLoading(false);
@@ -149,24 +149,26 @@ export default function Admin() {
 		e.preventDefault();
 		
 		try {
+			const isEditing = !!editingId;
 			const response = await fetch("/api/rules", {
-				method: "POST",
+				method: isEditing ? "PUT" : "POST",
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify(formData),
+				body: JSON.stringify(isEditing ? { ...formData, id: editingId } : formData),
 			});
 			
-			const data = await response.json() as { success: boolean; data?: Announcement; error?: string };
+			const data = await response.json() as { success: boolean; error?: string };
 			
 			if (data.success) {
 				setFormData({ title: "", content: "", important: false });
+				setEditingId(null);
 				setShowForm(false);
 				fetchRules();
 			} else {
-				setError(data.error || t("admin.createError"));
+				setError(data.error || t(isEditing ? "admin.editError" : "admin.createError"));
 			}
-		} catch (err) {
+		} catch {
 			setError(t("admin.networkError"));
 		}
 	};
@@ -189,7 +191,7 @@ export default function Admin() {
 			} else {
 				setError(data.error || t("admin.deleteError"));
 			}
-		} catch (err) {
+		} catch {
 			setError(t("admin.networkError"));
 		}
 	};
@@ -214,7 +216,11 @@ export default function Admin() {
 
 	// 登出
 	const handleLogout = async () => {
-		await fetch("/api/auth", { method: "DELETE" });
+		try {
+			await fetch("/api/auth", { method: "DELETE" });
+		} catch {
+			// 即使请求失败也清除本地状态
+		}
 		setAuthenticated(false);
 		setRules([]);
 		setUsername("");

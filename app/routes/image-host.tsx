@@ -82,7 +82,7 @@ export default function ImageHost() {
 			<section className="mt-10">
 				{images.length === 0 ? (
 					<div className="mt-3 rounded-2xl border border-gray-200 bg-white/70 p-10 text-center text-sm text-gray-400 dark:border-gray-800 dark:bg-gray-900/70 dark:text-gray-500">
-						0 items
+						{t("imageHost.empty")}
 					</div>
 				) : (
 					<div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">

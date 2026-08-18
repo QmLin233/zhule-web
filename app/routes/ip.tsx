@@ -36,7 +36,7 @@ function InfoBlock({ label, value }: { label?: string; value?: string | number }
 				<p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
 			)}
 			<p className="mt-1 whitespace-pre-line break-words text-sm font-medium text-gray-800 dark:text-gray-100">
-				{value !== undefined && value !== null && value !== "" ? value : "None"}
+				{value !== undefined && value !== null && value !== "" ? value : t("ip.none")}
 			</p>
 		</div>
 	);
