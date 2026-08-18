@@ -36,7 +36,20 @@ export default function Admin() {
 
 	// 页面加载时检查登录状态
 	useEffect(() => {
-		fetchRules();
+		(async () => {
+			try {
+				const res = await fetch("/api/auth");
+				const data = await res.json() as { authenticated: boolean };
+				if (data.authenticated) {
+					setAuthenticated(true);
+					fetchRules();
+				} else {
+					setLoading(false);
+				}
+			} catch {
+				setLoading(false);
+			}
+		})();
 	}, []);
 
 	// 登录验证
@@ -61,26 +74,20 @@ export default function Admin() {
 		}
 	};
 
-	// 获取群规列表（同时用于检查登录状态）
+	// 获取公告列表
 	const fetchRules = async () => {
 		try {
 			setLoading(true);
 			const response = await fetch("/api/rules");
-			if (response.status === 401) {
-				setAuthenticated(false);
-				setLoading(false);
-				return;
-			}
 			const data = await response.json() as { success: boolean; data: Announcement[]; error?: string };
 			
 			if (data.success) {
-				setAuthenticated(true);
 				setRules(data.data);
 			} else {
-				setError(data.error || "获取公告失败");
+				setError(data.error || t("admin.fetchError"));
 			}
 		} catch (err) {
-			setError("网络错误");
+			setError(t("admin.networkError"));
 		} finally {
 			setLoading(false);
 		}
@@ -91,7 +98,7 @@ export default function Admin() {
 		return (
 			<PageLayout>
 				<div className="flex min-h-[60vh] items-center justify-center">
-					<div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+					<div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
 						<form onSubmit={handleLogin}>
 							<div className="mb-4">
 								<label htmlFor="username" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -157,16 +164,16 @@ export default function Admin() {
 				setShowForm(false);
 				fetchRules();
 			} else {
-				setError(data.error || "创建公告失败");
+				setError(data.error || t("admin.createError"));
 			}
 		} catch (err) {
-			setError("网络错误");
+			setError(t("admin.networkError"));
 		}
 	};
 
 	// 删除群规
 	const handleDelete = async (id: string) => {
-		if (!confirm("确定要删除这条公告吗？")) {
+		if (!confirm(t("admin.deleteConfirm"))) {
 			return;
 		}
 		
@@ -180,10 +187,10 @@ export default function Admin() {
 			if (data.success) {
 				fetchRules();
 			} else {
-				setError(data.error || "删除公告失败");
+				setError(data.error || t("admin.deleteError"));
 			}
 		} catch (err) {
-			setError("网络错误");
+			setError(t("admin.networkError"));
 		}
 	};
 
@@ -215,7 +222,7 @@ export default function Admin() {
 	};
 
 	return (
-		<PageLayout title={t("admin.title")}>
+		<PageLayout>
 			<div className="mx-auto max-w-6xl px-4 py-8">
 				<div className="mb-8 flex items-center justify-between">
 					<div>
@@ -262,7 +269,7 @@ export default function Admin() {
 
 				{/* 创建/编辑表单 */}
 				{showForm && (
-					<div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+					<div className="mb-8 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
 						<h2 className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
 							{editingId ? t("admin.edit") : t("admin.create")}
 						</h2>
@@ -332,7 +339,7 @@ export default function Admin() {
 						<div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
 					</div>
 				) : rules.length === 0 ? (
-					<div className="rounded-lg border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-gray-900">
+						<div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-gray-900">
 						<p className="text-gray-500 dark:text-gray-400">{t("admin.empty")}</p>
 					</div>
 				) : (
@@ -340,7 +347,7 @@ export default function Admin() {
 						{rules.map((rule) => (
 							<div
 								key={rule.id}
-								className={`rounded-lg border p-6 ${
+								className={`rounded-2xl border p-6 ${
 								rule.important
 										? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
 										: "border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
@@ -352,7 +359,7 @@ export default function Admin() {
 											<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
 												{rule.title}
 											</h3>
-											{rule.important && (
+												{!!rule.important && (
 												<span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
 													{t("admin.important")}
 												</span>

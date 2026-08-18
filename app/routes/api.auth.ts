@@ -1,5 +1,12 @@
-import type { Route } from "+./+types/api.auth";
-import { createToken, setAuthCookie, clearAuthCookie } from "../lib/auth";
+import type { Route } from "./+types/api.auth";
+import { createToken, setAuthCookie, clearAuthCookie, getAuthFromRequest } from "../lib/auth";
+
+// 检查登录状态
+export async function loader({ request, context }: Route.LoaderArgs) {
+	const { AUTH_SECRET } = context.cloudflare.env;
+	const authenticated = await getAuthFromRequest(request, AUTH_SECRET);
+	return Response.json({ authenticated });
+}
 
 export async function action({ request, context }: Route.ActionArgs) {
 	const { ADMIN, ADMIN_PASSWD, AUTH_SECRET } = context.cloudflare.env;
