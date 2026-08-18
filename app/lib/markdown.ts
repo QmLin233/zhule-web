@@ -5,6 +5,9 @@ import DOMPurify from "dompurify";
 const marked = new Marked();
 
 marked.use(
+	{
+		breaks: true,
+	},
 	markedKatex({
 		throwOnError: false,
 		output: "html",

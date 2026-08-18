@@ -370,11 +370,11 @@ export function Game2048() {
 				)}
 
 				{(state.over || state.won) && (
-					<div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-black/40 text-white backdrop-blur-sm">
+					<div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-black/20 text-white backdrop-blur-md">
 						<p className="text-3xl font-semibold">
 							{state.won ? t("game.won") + " 🎉" : t("game.over")}
 						</p>
-						<p className="mt-2 text-sm text-white/70">
+						<p className="mt-2 text-sm text-white/80">
 							{state.won ? t("game.won") : `${t("game.score")} ${state.score} · ${mm}:${ss}`}
 						</p>
 						<button
