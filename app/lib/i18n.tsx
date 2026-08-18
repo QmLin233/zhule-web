@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 // 支持的语言类型
 export type Lang = "zh" | "en";
@@ -22,7 +22,9 @@ const resources: Record<Lang, Translations> = {
     "nav.game": "游戏",
     "nav.ip": "IP 查询",
     "nav.imageHost": "图床",
+    "nav.rules": "公告",
     "nav.more": "更多",
+    "nav.admin": "管理",
     "nav.settings": "设置",
     "nav.menu": "菜单",
     "nav.switchToLight": "切换到白天模式",
@@ -70,6 +72,32 @@ const resources: Record<Lang, Translations> = {
     // 更多页面
     "more.title": "更多",
     
+    // 群规页面
+    "rules.title": "公告",
+    "rules.subtitle": "公告与条文",
+    "rules.empty": "暂无公告",
+    
+    // 管理后台
+    "admin.title": "管理后台",
+    "admin.login": "登录",
+    "admin.logout": "登出",
+    "admin.username": "账号",
+    "admin.password": "密码",
+    "admin.loginError": "账号或密码错误",
+    "admin.networkError": "网络错误",
+    "admin.subtitle": "管理公告与内容",
+    "admin.create": "创建公告",
+    "admin.edit": "编辑",
+    "admin.delete": "删除",
+    "admin.important": "重要",
+    "admin.empty": "暂无公告",
+    "admin.form.title": "标题",
+    "admin.form.content": "内容",
+    "admin.form.important": "标记为重要",
+    "admin.form.cancel": "取消",
+    "admin.form.save": "保存",
+    "admin.form.create": "创建",
+    
     // 联系方式
     "contact.qqGroup": "QQ 群",
     "contact.email": "邮箱",
@@ -86,7 +114,9 @@ const resources: Record<Lang, Translations> = {
     "nav.game": "Game",
     "nav.ip": "IP Lookup",
     "nav.imageHost": "Image Host",
+    "nav.rules": "Rules",
     "nav.more": "More",
+    "nav.admin": "Admin",
     "nav.settings": "Settings",
     "nav.menu": "Menu",
     "nav.switchToLight": "Switch to light mode",
@@ -134,6 +164,32 @@ const resources: Record<Lang, Translations> = {
     // More page
     "more.title": "More",
     
+    // Rules page
+    "rules.title": "Rules",
+    "rules.subtitle": "Group rules and guidelines",
+    "rules.empty": "No rules yet",
+    
+    // Admin
+    "admin.title": "Admin Panel",
+    "admin.login": "Login",
+    "admin.logout": "Logout",
+    "admin.username": "Username",
+    "admin.password": "Password",
+    "admin.loginError": "Invalid username or password",
+    "admin.networkError": "Network error",
+    "admin.subtitle": "Manage rules and content",
+    "admin.create": "Create Rule",
+    "admin.edit": "Edit",
+    "admin.delete": "Delete",
+    "admin.important": "Important",
+    "admin.empty": "No rules yet",
+    "admin.form.title": "Title",
+    "admin.form.content": "Content",
+    "admin.form.important": "Mark as important",
+    "admin.form.cancel": "Cancel",
+    "admin.form.save": "Save",
+    "admin.form.create": "Create",
+    
     // Contact
     "contact.qqGroup": "QQ Group",
     "contact.email": "Email",
@@ -151,20 +207,14 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 // i18n Provider
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("zh");
-
-  // 初始化语言
-  useEffect(() => {
-    let stored: string | null = null;
+  // 同步读取 localStorage，避免刷新时中文闪烁
+  const [lang, setLangState] = useState<Lang>(() => {
     try {
-      stored = localStorage.getItem("lang");
-    } catch {
-      // 浏览器禁用存储时忽略
-    }
-    if (stored === "zh" || stored === "en") {
-      setLangState(stored);
-    }
-  }, []);
+      const stored = localStorage.getItem("lang");
+      if (stored === "en") return "en";
+    } catch {}
+    return "zh";
+  });
 
   // 设置语言
   const setLang = (newLang: Lang) => {

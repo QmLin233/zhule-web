@@ -10,7 +10,7 @@ export function PageLayout({
 	maxWidth = "max-w-3xl",
 	children,
 }: {
-	title: string;
+	title?: string;
 	maxWidth?: string;
 	children: ReactNode;
 }) {
@@ -18,9 +18,11 @@ export function PageLayout({
 		<div className="flex min-h-screen flex-col bg-cream text-gray-900 dark:bg-gray-950 dark:text-gray-100">
 			<NavMenu />
 			<main className={`mx-auto w-full ${maxWidth} flex-1 px-6 py-10`}>
-				<header className="text-center">
-					<h1 className="text-4xl font-semibold tracking-tight">{title}</h1>
-				</header>
+				{title && (
+					<header className="text-center">
+						<h1 className="text-4xl font-semibold tracking-tight">{title}</h1>
+					</header>
+				)}
 				{children}
 			</main>
 		</div>

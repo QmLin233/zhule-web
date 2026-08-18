@@ -14,6 +14,13 @@
 			"bucket_name": "zhule"
 		}
 	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "zhule",
+			"database_id": "placeholder-id"
+		}
+	],
 	"vars": {
 		"PUBLIC_BUCKET_URL": "https://cdn.zhule.org"
 	}

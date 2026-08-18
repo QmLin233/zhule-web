@@ -57,15 +57,39 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-	let message = "出错了 · Oops!";
-	let details = "发生了一个意外错误 · An unexpected error occurred.";
+	// 从 localStorage 读取语言设置（ErrorBoundary 在 I18nProvider 外部）
+	let lang: "zh" | "en" = "zh";
+	try {
+		const stored = localStorage.getItem("lang");
+		if (stored === "en") lang = "en";
+	} catch {}
+
+	const texts = {
+		zh: {
+			oops: "出错了",
+			notFound: "404",
+			notFoundDesc: "页面不存在",
+			errorDesc: "发生了一个意外错误",
+			backHome: "返回首页",
+		},
+		en: {
+			oops: "Oops!",
+			notFound: "404",
+			notFoundDesc: "The requested page could not be found.",
+			errorDesc: "An unexpected error occurred.",
+			backHome: "Back to Home",
+		},
+	}[lang];
+
+	let message = texts.oops;
+	let details = texts.errorDesc;
 	let stack: string | undefined;
 
 	if (isRouteErrorResponse(error)) {
-		message = error.status === 404 ? "404" : "Error";
+		message = error.status === 404 ? texts.notFound : "Error";
 		details =
 			error.status === 404
-				? "页面不存在 · The requested page could not be found."
+				? texts.notFoundDesc
 				: error.statusText || details;
 	} else if (import.meta.env.DEV && error && error instanceof Error) {
 		details = error.message;
@@ -85,7 +109,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 				href="/"
 				className="mt-8 rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
 			>
-				返回首页
+				{texts.backHome}
 			</a>
 		</main>
 	);

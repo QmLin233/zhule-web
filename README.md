@@ -9,6 +9,8 @@
 - **图床**（`/image-host`）：从 R2 桶 `zhule` 的 `image/` 前缀列出图片，支持复制链接与下载
 - **IP 查询**（`/ip`）：显示本机 IP、属地、运营商、ASN、延迟
 - **游戏**（`/game`）：2048
+- **公告**（`/rules`）：逐乐群公告展示，数据存储在 Cloudflare D1
+- **管理后台**（`/admin`）：需账号密码登录，管理公告的增删改
 - **设置 / 更多**：建设中
 
 ## 目录结构
@@ -34,6 +36,22 @@ npm run typecheck    # 生成类型 + 类型检查
 ```
 
 > 注意：部署必须用 `build/server/wrangler.json`（根目录 `wrangler.json` 引用虚拟模块）。
+
+## 环境变量 / Secrets
+
+本地开发放在 `.dev.vars`（已在 `.gitignore`），生产部署用 `wrangler secret put`：
+
+| 名称 | 说明 |
+|------|------|
+| `ADMIN` | 管理员账号 |
+| `ADMIN_PASSWD` | 管理员密码 |
+| `AUTH_SECRET` | Cookie 签名密钥（随机长字符串） |
+
+```bash
+wrangler secret put ADMIN
+wrangler secret put ADMIN_PASSWD
+wrangler secret put AUTH_SECRET
+```
 
 ## R2 说明
 

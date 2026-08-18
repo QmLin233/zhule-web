@@ -24,7 +24,7 @@ export function HomeHero() {
 			{/* 底部信息 */}
 			<footer className="px-4 pb-8 text-center text-sm text-gray-400 dark:text-gray-500">
 				<p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-					<span>{t("contact.qqGroup")}: 1090099236</span>
+					<span>{t("contact.qqGroup")}: <a href="https://qm.qq.com/q/bNQKaJEaqW" target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">1090099236</a></span>
 					<span className="text-gray-300 dark:text-gray-700">|</span>
 					<span>{t("contact.email")}: qmlin233@qq.com</span>
 				</p>
