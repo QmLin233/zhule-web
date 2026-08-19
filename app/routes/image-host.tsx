@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useLoaderData } from "react-router";
 import type { Route } from "./+types/image-host";
 import { PageLayout } from "../components/PageLayout";
@@ -21,8 +21,36 @@ export async function loader({ context }: Route.LoaderArgs) {
 	return { images };
 }
 
+/** 图片预览灯箱 */
+function ImageLightbox({ img, onClose }: { img: R2Item; onClose: () => void }) {
+	return (
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+			onClick={onClose}
+		>
+			<div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+				<button
+					onClick={onClose}
+					className="absolute -right-3 -top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-800 shadow-lg transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+					aria-label="关闭"
+				>
+					✕
+				</button>
+				<img
+					src={img.url}
+					alt={img.name}
+					className="max-h-[85vh] rounded-lg object-contain shadow-2xl"
+				/>
+				<p className="mt-2 text-center text-sm text-white/80">
+					{img.name} · {formatSize(img.size)}
+				</p>
+			</div>
+		</div>
+	);
+}
+
 /** 单张图片卡片：缩略图 + 下载/复制按钮 */
-function ImageCard({ img }: { img: R2Item }) {
+function ImageCard({ img, onPreview }: { img: R2Item; onPreview: () => void }) {
 	const [copied, setCopied] = useState(false);
 	const { t } = useI18n();
 
@@ -37,16 +65,20 @@ function ImageCard({ img }: { img: R2Item }) {
 	}
 
 	return (
-		<div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/70 dark:border-gray-800 dark:bg-gray-900/70">
-			<div className="aspect-square w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+		<div className="group overflow-hidden rounded-2xl border border-gray-200 bg-white/70 dark:border-gray-800 dark:bg-gray-900/70">
+			<button
+				type="button"
+				onClick={onPreview}
+				className="aspect-square w-full cursor-pointer overflow-hidden bg-gray-100 transition-transform hover:scale-[1.02] dark:bg-gray-800"
+			>
 				<img
 					src={img.url}
 					alt={img.name}
 					loading="lazy"
 					decoding="async"
-					className="h-full w-full object-cover image-rendering-auto"
+					className="h-full w-full object-cover"
 				/>
-			</div>
+			</button>
 			<div className="p-3">
 				<p className="truncate text-sm font-medium">{img.name}</p>
 				<p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
@@ -76,6 +108,9 @@ function ImageCard({ img }: { img: R2Item }) {
 export default function ImageHost() {
 	const { images } = useLoaderData<typeof loader>();
 	const { t } = useI18n();
+	const [preview, setPreview] = useState<R2Item | null>(null);
+
+	const closePreview = useCallback(() => setPreview(null), []);
 
 	return (
 		<PageLayout title={t("imageHost.title")} maxWidth="max-w-4xl">
@@ -87,11 +122,13 @@ export default function ImageHost() {
 				) : (
 					<div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
 						{images.map((img) => (
-							<ImageCard key={img.key} img={img} />
+							<ImageCard key={img.key} img={img} onPreview={() => setPreview(img)} />
 						))}
 					</div>
 				)}
 			</section>
+
+			{preview && <ImageLightbox img={preview} onClose={closePreview} />}
 		</PageLayout>
 	);
 }

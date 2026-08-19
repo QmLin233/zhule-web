@@ -4,6 +4,17 @@ import { useI18n } from "../lib/i18n";
 const SIZE = 4;
 type Dir = "left" | "right" | "up" | "down";
 
+/** Mulberry32 种子随机数生成器（客户端+服务端共用，保证回放一致） */
+function mulberry32(seed: number): () => number {
+	return () => {
+		seed |= 0;
+		seed = (seed + 0x6d2b79f5) | 0;
+		let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
 /** 每个方块带唯一 id 与坐标（参考原版 gabrielecirulli/2048 的 Tile） */
 type Tile = {
 	id: number;
@@ -18,12 +29,13 @@ type State = {
 	score: number;
 	over: boolean;
 	won: boolean;
-	/** 本轮合并产生的方块 id（播放 pop 动画） */
 	merged: number[];
-	/** 本轮新出现的方块 id（播放 appear 动画） */
 	added: number[];
-	/** 本次移动的最大位移（格数），用于按距离自适应过渡时长 */
 	moveDist: number;
+	/** 游戏种子（服务端回放用） */
+	seed: number;
+	/** 移动录像（方向序列） */
+	moves: Dir[];
 };
 
 type Action =
@@ -33,6 +45,8 @@ type Action =
 
 let uid = 1;
 const nextId = () => uid++;
+/** 当前游戏的种子随机数（由 reducer 外部设置） */
+let gameRng: () => number = Math.random;
 
 /** 四个方向的移动向量 */
 const VECTOR: Record<Dir, { x: number; y: number }> = {
@@ -54,7 +68,7 @@ function withinBounds(p: { x: number; y: number }): boolean {
 	return p.x >= 0 && p.x < SIZE && p.y >= 0 && p.y < SIZE;
 }
 
-/** 随机取一个空格 */
+/** 随机取一个空格（使用种子随机数） */
 function randomAvailableCell(board: Board): { x: number; y: number } | null {
 	const empty: Array<{ x: number; y: number }> = [];
 	board.forEach((row, y) =>
@@ -62,7 +76,7 @@ function randomAvailableCell(board: Board): { x: number; y: number } | null {
 			if (!tile) empty.push({ x, y });
 		}),
 	);
-	return empty.length ? empty[Math.floor(Math.random() * empty.length)] : null;
+	return empty.length ? empty[Math.floor(gameRng() * empty.length)] : null;
 }
 
 /** 在随机空格生成 2（90%）或 4（10%），返回新棋盘与新增方块 id */
@@ -71,7 +85,7 @@ function addRandomTile(board: Board): { board: Board; addedId: number } {
 	if (!cell) return { board, addedId: 0 };
 	const id = nextId();
 	const next = cloneBoard(board);
-	next[cell.y][cell.x] = { id, x: cell.x, y: cell.y, value: Math.random() < 0.9 ? 2 : 4 };
+	next[cell.y][cell.x] = { id, x: cell.x, y: cell.y, value: gameRng() < 0.9 ? 2 : 4 };
 	return { board: next, addedId: id };
 }
 
@@ -171,6 +185,9 @@ function movesAvailable(board: Board): boolean {
 
 /** 生成初始两枚随机方块（仅在客户端调用，避免 SSR 水合不一致） */
 function initialTiles(): State {
+	const seed = Date.now();
+	gameRng = mulberry32(seed);
+	uid = 1;
 	let board = emptyBoard();
 	const added: number[] = [];
 	for (let i = 0; i < 2; i++) {
@@ -178,7 +195,7 @@ function initialTiles(): State {
 		board = r.board;
 		added.push(r.addedId);
 	}
-	return { board, score: 0, over: false, won: false, merged: [], added, moveDist: 0 };
+	return { board, score: 0, over: false, won: false, merged: [], added, moveDist: 0, seed, moves: [] };
 }
 
 /** SSR 与客户端首帧共用确定性空棋盘；随机方块在挂载后由 boot 生成 */
@@ -191,6 +208,8 @@ function initState(): State {
 		merged: [],
 		added: [],
 		moveDist: 0,
+		seed: 0,
+		moves: [],
 	};
 }
 
@@ -212,22 +231,24 @@ function reducer(state: State, action: Action): State {
 		merged,
 		added: [addedId],
 		moveDist: maxDist,
+		seed: state.seed,
+		moves: [...state.moves, action.dir],
 	};
 }
 
 const TILE_CLASSES: Record<number, string> = {
-	0: "bg-[#e8ddca] dark:bg-gray-800",
-	2: "bg-amber-100 text-amber-800 dark:bg-amber-800/80 dark:text-amber-100",
-	4: "bg-amber-200 text-amber-800 dark:bg-amber-700 dark:text-amber-100",
-	8: "bg-orange-300 text-white dark:bg-orange-700 dark:text-orange-100",
-	16: "bg-orange-400 text-white dark:bg-orange-600 dark:text-white",
-	32: "bg-red-400 text-white dark:bg-red-800 dark:text-red-100",
-	64: "bg-red-500 text-white dark:bg-red-700 dark:text-red-100",
-	128: "bg-yellow-400 text-amber-900 dark:bg-yellow-600 dark:text-yellow-100",
-	256: "bg-yellow-500 text-white dark:bg-yellow-700 dark:text-yellow-100",
-	512: "bg-yellow-500 text-white dark:bg-yellow-700 dark:text-yellow-100",
-	1024: "bg-yellow-600 text-white dark:bg-yellow-700 dark:text-white",
-	2048: "bg-amber-600 text-white dark:bg-amber-500 dark:text-white",
+	0: "bg-[#cdc1b4] dark:bg-[#1a1a2e]",
+	2: "bg-[#eee4da] text-[#776e65] dark:bg-[#3d3d56] dark:text-[#d8d0c0]",
+	4: "bg-[#ede0c8] text-[#776e65] dark:bg-[#4d4d64] dark:text-[#d8d0c0]",
+	8: "bg-[#f2b179] text-[#f9f6f2] dark:bg-[#5d4a70] dark:text-[#f0e8d8]",
+	16: "bg-[#f59563] text-[#f9f6f2] dark:bg-[#6e4a70] dark:text-[#f5ece0]",
+	32: "bg-[#f67c5f] text-[#f9f6f2] dark:bg-[#804a68] dark:text-[#f8f0e8]",
+	64: "bg-[#f65e3b] text-[#f9f6f2] dark:bg-[#984858] dark:text-white",
+	128: "bg-[#edcf72] text-[#f9f6f2] dark:bg-[#b07838] dark:text-white",
+	256: "bg-[#edcc61] text-[#f9f6f2] dark:bg-[#c88830] dark:text-white",
+	512: "bg-[#edc850] text-[#f9f6f2] dark:bg-[#e09828] dark:text-white",
+	1024: "bg-[#edc53f] text-[#f9f6f2] dark:bg-[#eba820] dark:text-white",
+	2048: "bg-[#edc22e] text-[#f9f6f2] dark:bg-[#f0b810] dark:text-white",
 };
 
 function tileTextSize(v: number): string {
@@ -241,11 +262,53 @@ export function Game2048() {
 	const [elapsed, setElapsed] = useState(0);
 	const touchStart = useRef<{ x: number; y: number } | null>(null);
 	const { t } = useI18n();
+	const [submitted, setSubmitted] = useState(false);
+	const [highScore, setHighScore] = useState<number>(0);
 
-	// 挂载后生成初始方块（首帧为空棋盘，SSR/客户端一致，避免水合警告）
+	// 挂载后：从 localStorage 读最高分，尝试同步未提交的记录，从服务器取更大值
 	useEffect(() => {
 		dispatch({ type: "boot" });
+		try {
+			const saved = localStorage.getItem("game2048_best");
+			if (saved) setHighScore(Number(saved) || 0);
+		} catch {}
+
+		// 尝试同步未提交的游戏记录（未登录时保存的）
+		try {
+			const pending = localStorage.getItem("game2048_pending");
+			if (pending) {
+				const record = JSON.parse(pending) as { score: number; seed: number; moves: string[]; elapsed: number };
+				fetch("/api/game", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(record),
+				}).then(r => r.json()).then((data: { success?: boolean }) => {
+					if (data.success) {
+						localStorage.removeItem("game2048_pending");
+					}
+				}).catch(() => {});
+			}
+		} catch {}
+
+		// 登录用户尝试从服务器获取最高分（取更大值）
+		fetch("/api/game").then(r => r.json()).then((data: { myBest?: number | null }) => {
+			if (data.myBest != null) {
+				setHighScore(prev => {
+					const best = Math.max(prev, data.myBest!);
+					try { localStorage.setItem("game2048_best", String(best)); } catch {}
+					return best;
+				});
+			}
+		}).catch(() => {});
 	}, []);
+
+	// 实时更新最高分
+	useEffect(() => {
+		if (state.score > highScore) {
+			setHighScore(state.score);
+			try { localStorage.setItem("game2048_best", String(state.score)); } catch {}
+		}
+	}, [state.score]);
 
 	// 计时：每秒 +1（游戏结束 / 通关后暂停）
 	useEffect(() => {
@@ -254,9 +317,32 @@ export function Game2048() {
 		return () => window.clearInterval(t);
 	}, [state.over, state.won]);
 
+	// 游戏结束时：保存完整记录到 localStorage，已登录则同时提交服务器
+	useEffect(() => {
+		if (!state.over || submitted || state.moves.length === 0) return;
+		setSubmitted(true);
+
+		const record = { score: state.score, seed: state.seed, moves: state.moves, elapsed };
+
+		// 保存完整记录到 localStorage（供未登录用户后续同步）
+		try { localStorage.setItem("game2048_pending", JSON.stringify(record)); } catch {}
+
+		// 尝试提交到服务器（未登录会 401，不影响本地保存）
+		fetch("/api/game", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(record),
+		}).then(r => r.json()).then((data: { success?: boolean }) => {
+			if (data.success) {
+				localStorage.removeItem("game2048_pending");
+			}
+		}).catch(() => {});
+	}, [state.over, submitted, state.seed, state.moves, state.score, elapsed]);
+
 	const restart = () => {
 		dispatch({ type: "restart" });
 		setElapsed(0);
+		setSubmitted(false);
 	};
 
 	// 键盘操作：方向键 / WASD
@@ -315,6 +401,11 @@ export function Game2048() {
 					<div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/70">
 						<p className="text-xl font-semibold tabular-nums">{state.score}</p>
 					</div>
+					{highScore > 0 && (
+						<div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/70">
+							<p className="text-xl font-semibold tabular-nums">{highScore}</p>
+						</div>
+					)}
 					<div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/70">
 						<p className="text-xl font-semibold tabular-nums">
 							{mm}:{ss}
@@ -338,7 +429,7 @@ export function Game2048() {
 
 			{/* 棋盘（固定尺寸 + transform 定位，原版方案） */}
 			<div
-				className="game2048-board relative mt-4 rounded-2xl bg-[#bfb5a8] p-3 shadow-sm dark:bg-gray-900 dark:shadow-none"
+				className="game2048-board relative mt-4 rounded-2xl bg-[#bbada0] p-3 shadow-sm dark:bg-[#1a1a2e] dark:shadow-none"
 				style={{ "--move-dur": `${50 + state.moveDist * 15}ms` } as React.CSSProperties}
 				onTouchStart={onTouchStart}
 				onTouchEnd={onTouchEnd}
@@ -347,7 +438,7 @@ export function Game2048() {
 				{Array.from({ length: SIZE * SIZE }, (_, i) => (
 					<div
 						key={`cell-${i}`}
-						className="game2048-tile rounded-xl bg-[#ddd7d0] dark:bg-gray-800"
+						className="game2048-tile rounded-xl bg-[#cdc1b4] dark:bg-[#2d2d44]"
 						style={
 							{ "--x": i % SIZE, "--y": Math.floor(i / SIZE) } as React.CSSProperties
 						}
@@ -364,7 +455,7 @@ export function Game2048() {
 							>
 								{/* 内层 tile-inner：负责 appear / pop 动画（与移动分离） */}
 								<div
-									className={`flex h-full w-full items-center justify-center rounded-xl font-bold ${TILE_CLASSES[tile.value] ?? "bg-amber-600 text-white dark:bg-amber-500 dark:text-white"} ${tileTextSize(tile.value)} ${
+									className={`flex h-full w-full items-center justify-center rounded-xl font-bold ${TILE_CLASSES[tile.value] ?? "bg-[#edc22e] text-[#f9f6f2] dark:bg-[#f0b810] dark:text-white"} ${tileTextSize(tile.value)} ${
 										state.merged.includes(tile.id) ? "tile-merged" : ""
 									} ${state.added.includes(tile.id) ? "tile-new" : ""}`}
 								>

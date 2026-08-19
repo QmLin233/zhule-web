@@ -5,7 +5,6 @@ import { useI18n } from "../lib/i18n";
 const menuItems = [
 	{ to: "/download", labelKey: "nav.download" },
 	{ to: "/game", labelKey: "nav.game" },
-	{ to: "/ip", labelKey: "nav.ip" },
 	{ to: "/image-host", labelKey: "nav.imageHost" },
 	{ to: "/rules", labelKey: "nav.rules" },
 	{ to: "/more", labelKey: "nav.more" },
