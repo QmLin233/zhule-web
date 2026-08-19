@@ -30,6 +30,7 @@ const SOURCE_NAMES: Record<string, string> = {
 };
 
 function InfoBlock({ label, value }: { label?: string; value?: string | number }) {
+	const { t } = useI18n();
 	return (
 		<div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-gray-800/40">
 			{label && (

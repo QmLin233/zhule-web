@@ -226,7 +226,7 @@ async function lookupByIpApi(ip: string): Promise<IpInfo> {
 		return cached;
 	}
 
-	const url = `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=${IP_API_FIELDS}`;
+	const url = `https://ip-api.com/json/${encodeURIComponent(ip)}?fields=${IP_API_FIELDS}`;
 	const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
 	const data = (await res.json()) as Record<string, unknown>;
 
@@ -331,9 +331,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	// 原始 request.cf 在入口 fetch 已捕获并注入 context（见 workers/app.ts）
 	const cf = context.cf as CfGeo | undefined;
 	const ip = getClientIp(request);
-	const apiKey = (
-		context.cloudflare.env as unknown as { IPCHAXUN_API_KEY?: string }
-	).IPCHAXUN_API_KEY;
+	const apiKey = context.cloudflare.env.IPCHAXUN_API_KEY;
 
 	// 出口 IP（边缘节点出口地址，IPv4 优先、无则 IPv6，按机房缓存 1h，失败则省略）
 	const colo = cf?.colo ?? coloFromRay(request.headers.get("CF-Ray"));
@@ -347,7 +345,10 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 				const info = await lookupByIpchaxun(ip, apiKey);
 				return Response.json({ ...info, egressIp });
 			} catch {
-				// 继续重试，3 次都不行再换其他服务
+				// 指数退避：第1次 100ms，第2次 300ms
+				if (attempt < 2) {
+					await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+				}
 			}
 		}
 	}

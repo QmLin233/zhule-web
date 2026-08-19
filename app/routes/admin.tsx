@@ -2,6 +2,7 @@ import type { Route } from "./+types/admin";
 import { useState, useEffect } from "react";
 import { PageLayout } from "../components/PageLayout";
 import { useI18n } from "../lib/i18n";
+import { renderMarkdown } from "../lib/markdown";
 
 interface Announcement {
 	id: string;
@@ -78,6 +79,7 @@ export default function Admin() {
 	const fetchRules = async () => {
 		try {
 			setLoading(true);
+			setError(null);
 			const response = await fetch("/api/rules");
 			const data = await response.json() as { success: boolean; data: Announcement[]; error?: string };
 			
@@ -161,6 +163,7 @@ export default function Admin() {
 			const data = await response.json() as { success: boolean; error?: string };
 			
 			if (data.success) {
+				setError(null);
 				setFormData({ title: "", content: "", important: false });
 				setEditingId(null);
 				setShowForm(false);
@@ -187,6 +190,7 @@ export default function Admin() {
 			const data = await response.json() as { success: boolean; error?: string };
 			
 			if (data.success) {
+				setError(null);
 				fetchRules();
 			} else {
 				setError(data.error || t("admin.deleteError"));
@@ -374,9 +378,10 @@ export default function Admin() {
 										<time className="mt-1 block text-sm text-gray-500 dark:text-gray-400">
 											{rule.date}
 										</time>
-										<p className="mt-3 text-gray-700 dark:text-gray-300">
-											{rule.content}
-										</p>
+										<div
+											className="mt-3 prose prose-sm prose-gray max-w-none dark:prose-invert"
+											dangerouslySetInnerHTML={{ __html: renderMarkdown(rule.content) }}
+										/>
 									</div>
 									<div className="ml-4 flex space-x-2">
 										<button

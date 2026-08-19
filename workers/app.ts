@@ -32,6 +32,11 @@ export default {
 		headers.set("X-Content-Type-Options", "nosniff");
 		headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 		headers.set("X-Frame-Options", "DENY");
+		headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+		headers.set(
+			"Content-Security-Policy",
+			"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: cdn.zhule.org; font-src 'self' data:; connect-src 'self' https://api6.ipify.org https://api4.ipify.org https://api.ipchaxun.com.cn https://ip-api.com https://www.cloudflare.com;",
+		);
 		return new Response(response.body, {
 			status: response.status,
 			statusText: response.statusText,

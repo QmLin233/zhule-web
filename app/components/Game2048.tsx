@@ -309,7 +309,7 @@ export function Game2048() {
 
 	return (
 		<div className="mx-auto mt-10 w-fit select-none">
-			{/* 顶部：分数 + 时间 + 重新开始 */}
+			{/* 顶部：分数 + 时间 + 状态灯 + 重新开始 */}
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex gap-3">
 					<div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/70">
@@ -321,13 +321,19 @@ export function Game2048() {
 						</p>
 					</div>
 				</div>
-				<button
-					type="button"
-					onClick={restart}
-					className="rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
-				>
-					{t("game.restart")}
-				</button>
+				<div className="flex items-center gap-3">
+					<span
+						className={`h-3 w-3 rounded-full ${state.over ? "bg-red-500" : state.won ? "bg-yellow-400" : "bg-green-500"}`}
+						title={state.over ? t("game.over") : state.won ? t("game.won") : t("game.controls")}
+					/>
+					<button
+						type="button"
+						onClick={restart}
+						className="rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+					>
+						{t("game.restart")}
+					</button>
+				</div>
 			</div>
 
 			{/* 棋盘（固定尺寸 + transform 定位，原版方案） */}
@@ -358,7 +364,7 @@ export function Game2048() {
 							>
 								{/* 内层 tile-inner：负责 appear / pop 动画（与移动分离） */}
 								<div
-									className={`flex h-full w-full items-center justify-center rounded-xl font-bold ${TILE_CLASSES[tile.value] ?? TILE_CLASSES[0]} ${tileTextSize(tile.value)} ${
+									className={`flex h-full w-full items-center justify-center rounded-xl font-bold ${TILE_CLASSES[tile.value] ?? "bg-amber-600 text-white dark:bg-amber-500 dark:text-white"} ${tileTextSize(tile.value)} ${
 										state.merged.includes(tile.id) ? "tile-merged" : ""
 									} ${state.added.includes(tile.id) ? "tile-new" : ""}`}
 								>
@@ -369,23 +375,7 @@ export function Game2048() {
 					),
 				)}
 
-				{(state.over || state.won) && (
-					<div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-black/20 text-white backdrop-blur-md">
-						<p className="text-3xl font-semibold">
-							{state.won ? t("game.won") + " 🎉" : t("game.over")}
-						</p>
-						<p className="mt-2 text-sm text-white/80">
-							{state.won ? t("game.won") : `${t("game.score")} ${state.score} · ${mm}:${ss}`}
-						</p>
-						<button
-							type="button"
-							onClick={restart}
-							className="mt-4 rounded-lg bg-white px-5 py-2 text-center text-sm font-medium text-gray-900 transition-colors hover:bg-gray-200"
-						>
-							{t("game.restart")}
-						</button>
-					</div>
-				)}
+
 			</div>
 
 			<p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">

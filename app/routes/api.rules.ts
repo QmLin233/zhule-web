@@ -10,7 +10,9 @@ export async function loader({ context }: Route.LoaderArgs) {
 			"SELECT * FROM rules ORDER BY important DESC, date DESC"
 		).all();
 
-		return Response.json({ success: true, data: results });
+		return new Response(JSON.stringify({ success: true, data: results }), {
+			headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60, s-maxage=60" },
+		});
 	} catch (error) {
 		console.error("获取公告失败:", error);
 		return Response.json(
@@ -64,6 +66,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 				return Response.json({ success: false, error: "缺少必要字段" }, { status: 400 });
 			}
 
+			if (title.length > 200 || content.length > 50000) {
+				return Response.json({ success: false, error: "内容过长" }, { status: 400 });
+			}
+
 			const now = new Date().toISOString();
 			const result = await DB.prepare(
 				"UPDATE rules SET title = ?, content = ?, important = ?, updatedAt = ? WHERE id = ?"
@@ -94,6 +100,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 		if (!title || !content) {
 			return Response.json({ success: false, error: "标题和内容不能为空" }, { status: 400 });
+		}
+
+		if (title.length > 200 || content.length > 50000) {
+			return Response.json({ success: false, error: "内容过长" }, { status: 400 });
 		}
 
 		const id = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);

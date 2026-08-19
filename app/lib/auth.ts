@@ -13,11 +13,16 @@ export async function createToken(secret: string): Promise<string> {
 	return `${payload}.${signature}`;
 }
 
-/** 验证 token 是否有效 */
+/** 验证 token 是否有效（签名正确且未过期） */
 export async function verifyToken(token: string, secret: string): Promise<boolean> {
 	const parts = token.split(".");
 	if (parts.length !== 2) return false;
 	const [payload, signature] = parts;
+
+	// 服务端过期校验：token 创建时间超过 TOKEN_MAX_AGE 秒则拒绝
+	const ts = Number(payload);
+	if (!Number.isFinite(ts) || Date.now() - ts > TOKEN_MAX_AGE * 1000) return false;
+
 	const expected = await sign(payload, secret);
 	// 常量时间比较
 	if (signature.length !== expected.length) return false;

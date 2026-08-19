@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
 
 // 支持的语言类型
 export type Lang = "zh" | "en";
@@ -113,19 +113,6 @@ const resources: Record<Lang, Translations> = {
     "nav.switchToLight": "Switch to light mode",
     "nav.switchToDark": "Switch to dark mode",
     
-    // Navigation
-    "nav.home": "Home",
-    "nav.download": "Download",
-    "nav.game": "Game",
-    "nav.ip": "IP Lookup",
-    "nav.imageHost": "Image Host",
-    "nav.rules": "Rules",
-    "nav.more": "More",
-    "nav.settings": "Settings",
-    "nav.menu": "Menu",
-    "nav.switchToLight": "Switch to light mode",
-    "nav.switchToDark": "Switch to dark mode",
-    
     // Settings page
     "settings.title": "Settings",
     "settings.language": "Language",
@@ -209,7 +196,9 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined);
 // i18n Provider
 export function I18nProvider({ children }: { children: ReactNode }) {
   // 同步读取 localStorage，避免刷新时中文闪烁
+  // SSR 时 localStorage 不存在，用 typeof 检查避免崩溃
   const [lang, setLangState] = useState<Lang>(() => {
+    if (typeof window === "undefined") return "zh";
     try {
       const stored = localStorage.getItem("lang");
       if (stored === "en") return "en";
@@ -218,7 +207,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   });
 
   // 设置语言
-  const setLang = (newLang: Lang) => {
+  const setLang = useCallback((newLang: Lang) => {
     setLangState(newLang);
     try {
       localStorage.setItem("lang", newLang);
@@ -226,15 +215,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       // 浏览器禁用存储时忽略
     }
     document.documentElement.lang = newLang === "zh" ? "zh-CN" : "en";
-  };
+  }, []);
 
-  // 翻译函数
-  const t = (key: string): string => {
+  // 翻译函数（useMemo 保证引用稳定，避免子组件多余重渲染）
+  const t = useCallback((key: string): string => {
     return resources[lang][key] || key;
-  };
+  }, [lang]);
+
+  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
 
   return (
-    <I18nContext.Provider value={{ lang, setLang, t }}>
+    <I18nContext.Provider value={value}>
       {children}
     </I18nContext.Provider>
   );
