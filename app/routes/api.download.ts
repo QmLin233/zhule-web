@@ -21,7 +21,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		return new Response("Forbidden", { status: 403 });
 	}
 
-	const obj = await context.cloudflare.env.FILES.get(key);
+	let obj: Awaited<ReturnType<typeof context.cloudflare.env.FILES.get>>;
+	try {
+		obj = await context.cloudflare.env.FILES.get(key);
+	} catch (error) {
+		console.error("R2 get 失败:", error);
+		return new Response("Internal Server Error", { status: 500 });
+	}
 	if (!obj) {
 		return new Response("Not Found", { status: 404 });
 	}

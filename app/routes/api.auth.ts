@@ -5,6 +5,7 @@ import { createToken, setAuthCookie, clearAuthCookie, getAuthFromRequest } from 
 const loginFailures = new Map<string, number[]>();
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 60_000; // 1 分钟窗口
+const MAX_ENTRIES = 1000; // 防止内存泄漏
 
 function getClientIp(request: Request): string {
 	return (
@@ -23,7 +24,24 @@ function isRateLimited(ip: string): boolean {
 	return recent.length >= MAX_ATTEMPTS;
 }
 
+/** 清理过期条目，防止内存泄漏 */
+function cleanupFailures(): void {
+	const now = Date.now();
+	for (const [ip, attempts] of loginFailures) {
+		const recent = attempts.filter((t) => now - t < WINDOW_MS);
+		if (recent.length === 0) {
+			loginFailures.delete(ip);
+		} else {
+			loginFailures.set(ip, recent);
+		}
+	}
+}
+
 function recordFailure(ip: string): void {
+	// 定期清理防止内存泄漏
+	if (loginFailures.size > MAX_ENTRIES) {
+		cleanupFailures();
+	}
 	const attempts = loginFailures.get(ip) || [];
 	attempts.push(Date.now());
 	loginFailures.set(ip, attempts);
@@ -59,10 +77,15 @@ export async function action({ request, context }: Route.ActionArgs) {
 		);
 	}
 
-	const { username, password } = await request.json() as {
-		username?: string;
-		password?: string;
-	};
+	let username: string | undefined;
+	let password: string | undefined;
+	try {
+		const body = await request.json() as { username?: string; password?: string };
+		username = body.username;
+		password = body.password;
+	} catch {
+		return Response.json({ success: false, error: "无效的请求体" }, { status: 400 });
+	}
 
 	// 常量时间比较，防止时序攻击
 	const enc = new TextEncoder();

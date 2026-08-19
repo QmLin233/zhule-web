@@ -113,16 +113,20 @@ async function readIpCache(key: string): Promise<IpInfo | null> {
 	return null;
 }
 
-/** 写入 IP 查询缓存（24h） */
+/** 写入 IP 查询缓存（24h），失败时静默忽略 */
 async function writeIpCache(key: string, info: IpInfo): Promise<void> {
-	const cache = (caches as unknown as { default: Cache }).default;
-	const response = new Response(JSON.stringify(info), {
-		headers: {
-			"content-type": "application/json",
-			"cache-control": "public, max-age=86400, s-maxage=86400",
-		},
-	});
-	await cache.put(key, response);
+	try {
+		const cache = (caches as unknown as { default: Cache }).default;
+		const response = new Response(JSON.stringify(info), {
+			headers: {
+				"content-type": "application/json",
+				"cache-control": "public, max-age=86400, s-maxage=86400",
+			},
+		});
+		await cache.put(key, response);
+	} catch {
+		// 缓存写入失败不应影响正常响应
+	}
 }
 
 /** 读取出口 IP 缓存（按机房+协议，1h），未命中返回 null */
@@ -133,13 +137,17 @@ async function readEgressCache(key: string): Promise<string | null> {
 	return null;
 }
 
-/** 写入出口 IP 缓存（1h） */
+/** 写入出口 IP 缓存（1h），失败时静默忽略 */
 async function writeEgressCache(key: string, ip: string): Promise<void> {
-	const cache = (caches as unknown as { default: Cache }).default;
-	const response = new Response(ip, {
-		headers: { "cache-control": "public, max-age=3600, s-maxage=3600" },
-	});
-	await cache.put(`https://egress-ip/${key}`, response);
+	try {
+		const cache = (caches as unknown as { default: Cache }).default;
+		const response = new Response(ip, {
+			headers: { "cache-control": "public, max-age=3600, s-maxage=3600" },
+		});
+		await cache.put(`https://egress-ip/${key}`, response);
+	} catch {
+		// 缓存写入失败不应影响正常响应
+	}
 }
 
 /** 请求指定协议的回显服务拿出口 IP，并校验协议族（ver=4 必须 IPv4，ver=6 必须 IPv6） */
