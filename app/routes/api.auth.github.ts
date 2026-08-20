@@ -40,9 +40,7 @@ function generateId(): string {
 // GET /api/auth/github — 跳转到 GitHub 授权页
 // GET /api/auth/github?code=xxx — 回调，用 code 换 token，获取用户信息
 export async function loader({ request, context }: Route.LoaderArgs) {
-	const { DB, AUTH_SECRET } = context.cloudflare.env;
-	const clientId = (context.cloudflare.env as unknown as { GITHUB_CLIENT_ID?: string }).GITHUB_CLIENT_ID;
-	const clientSecret = (context.cloudflare.env as unknown as { GITHUB_CLIENT_SECRET?: string }).GITHUB_CLIENT_SECRET;
+	const { DB, AUTH_SECRET, GITHUB_CLIENT_ID: clientId, GITHUB_CLIENT_SECRET: clientSecret } = context.cloudflare.env;
 
 	const url = new URL(request.url);
 	const code = url.searchParams.get("code");
