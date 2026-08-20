@@ -1,42 +1,9 @@
 import type { Route } from "./+types/api.rules";
 import { getAuthFromRequest } from "../lib/auth";
+import { getClientIp } from "../lib/http";
+import { createRateLimiter } from "../lib/rate-limit";
 
-// 写入操作速率限制（每IP每分钟最多10次写入）
-const writeAttempts = new Map<string, number[]>();
-const WRITE_RATE_LIMIT = 10;
-const WRITE_RATE_WINDOW = 60_000;
-
-function getClientIp(request: Request): string {
-	return (
-		request.headers.get("CF-Connecting-IP") ||
-		request.headers.get("x-real-ip") ||
-		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-		"unknown"
-	);
-}
-
-function isWriteRateLimited(ip: string): boolean {
-	const now = Date.now();
-	const attempts = writeAttempts.get(ip) || [];
-	const recent = attempts.filter((t) => now - t < WRITE_RATE_WINDOW);
-	writeAttempts.set(ip, recent);
-	return recent.length >= WRITE_RATE_LIMIT;
-}
-
-function recordWriteAttempt(ip: string): void {
-	// 定期清理
-	if (writeAttempts.size > 500) {
-		const now = Date.now();
-		for (const [k, v] of writeAttempts) {
-			if (v.filter((t) => now - t < WRITE_RATE_WINDOW).length === 0) {
-				writeAttempts.delete(k);
-			}
-		}
-	}
-	const attempts = writeAttempts.get(ip) || [];
-	attempts.push(Date.now());
-	writeAttempts.set(ip, attempts);
-}
+const writeLimiter = createRateLimiter(10, 60_000);
 
 // 获取所有群规（公开）
 export async function loader({ context }: Route.LoaderArgs) {
@@ -71,10 +38,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 	// 写入速率限制
 	const clientIp = getClientIp(request);
-	if (isWriteRateLimited(clientIp)) {
+	if (writeLimiter.isLimited(clientIp)) {
 		return Response.json({ success: false, error: "操作过于频繁" }, { status: 429 });
 	}
-	recordWriteAttempt(clientIp);
+	writeLimiter.record(clientIp);
 
 	// 删除
 	if (request.method === "DELETE") {
@@ -150,7 +117,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 			return Response.json({ success: false, error: "内容过长" }, { status: 400 });
 		}
 
-		const id = Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+		const id = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 		const now = new Date().toISOString();
 		const date = now.split("T")[0];
 

@@ -1,39 +1,56 @@
 import { redirect } from "react-router";
 import type { Route } from "./+types/api.auth.github";
+import { sign, constantTimeCompare } from "../lib/crypto";
+import { createUserToken, setUserCookie, clearUserCookie } from "../lib/user-auth";
 
 const GITHUB_AUTHORIZE = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN = "https://github.com/login/oauth/access_token";
 const GITHUB_USER_API = "https://api.github.com/user";
 
-// ============ Token 工具 ============
-
-const USER_TOKEN_NAME = "zhule_user";
-const USER_TOKEN_MAX_AGE = 60 * 60 * 24 * 7;
-
-async function sign(data: string, secret: string): Promise<string> {
-	const key = await crypto.subtle.importKey(
-		"raw",
-		new TextEncoder().encode(secret),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["sign"],
-	);
-	const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
-	return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function createUserToken(userId: string, secret: string): Promise<string> {
-	const payload = `${userId}.${Date.now()}`;
-	const signature = await sign(payload, secret);
-	return `${payload}.${signature}`;
-}
-
-function setUserCookie(token: string): string {
-	return `${USER_TOKEN_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${USER_TOKEN_MAX_AGE}`;
-}
+const STATE_COOKIE_NAME = "gh_oauth_state";
+const STATE_MAX_AGE = 300; // 5 分钟
 
 function generateId(): string {
-	return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+	return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+}
+
+// ============ State（CSRF 防护） ============
+
+/**
+ * 生成 OAuth state 参数：`<random>.<timestamp>.<hmac>`
+ * 用 HMAC 签名防止伪造，用时间戳防止重放。
+ */
+async function createState(secret: string): Promise<string> {
+	const nonce = crypto.randomUUID().replace(/-/g, "");
+	const ts = Date.now().toString();
+	const payload = `${nonce}.${ts}`;
+	const sig = await sign(payload, secret);
+	return `${payload}.${sig}`;
+}
+
+/** 验证 state：签名正确且未过期 */
+async function verifyState(state: string, secret: string): Promise<boolean> {
+	const parts = state.split(".");
+	if (parts.length !== 3) return false;
+	const [nonce, ts, signature] = parts;
+	const numTs = Number(ts);
+	if (!Number.isFinite(numTs) || Date.now() - numTs > STATE_MAX_AGE * 1000) return false;
+	const expected = await sign(`${nonce}.${ts}`, secret);
+	return constantTimeCompare(signature, expected);
+}
+
+function setStateCookie(state: string): string {
+	return `${STATE_COOKIE_NAME}=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${STATE_MAX_AGE}`;
+}
+
+function clearStateCookie(): string {
+	return `${STATE_COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+}
+
+function getStateFromCookie(request: Request): string | null {
+	const cookie = request.headers.get("cookie") || "";
+	const match = cookie.match(new RegExp(`${STATE_COOKIE_NAME}=([^;]+)`));
+	return match ? match[1] : null;
 }
 
 // ============ API 路由 ============
@@ -60,11 +77,19 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 				return Response.json({ success: false, error: "GitHub 登录未配置" }, { status: 500 });
 			}
 			const redirectUri = `${url.origin}/api/auth/github`;
-			const githubUrl = `${GITHUB_AUTHORIZE}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user`;
-			return Response.redirect(githubUrl, 302);
+			// 生成 state 防止 CSRF 攻击
+			const state = await createState(AUTH_SECRET);
+			const githubUrl = `${GITHUB_AUTHORIZE}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user&state=${state}`;
+			return new Response(null, {
+				status: 302,
+				headers: {
+					"Location": githubUrl,
+					"Set-Cookie": setStateCookie(state),
+				},
+			});
 		}
 
-		// 第二步：预检必要配置
+		// 第二步：预检必要配置 + 校验 state（CSRF 防护）
 		if (!clientId || !clientSecret) {
 			console.error("[github-auth] missing config, clientId:", !!clientId, "clientSecret:", !!clientSecret);
 			throw redirect("/settings?error=github_not_configured");
@@ -74,6 +99,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		}
 		if (!DB) {
 			throw redirect("/settings?error=db_missing");
+		}
+
+		// 校验 state 参数防止 CSRF
+		const urlState = url.searchParams.get("state");
+		const cookieState = getStateFromCookie(request);
+		if (!urlState || !cookieState || urlState !== cookieState || !(await verifyState(urlState, AUTH_SECRET))) {
+			throw redirect("/settings?error=github_state_invalid");
 		}
 
 		// 第三步：用 code 换 access_token
@@ -91,7 +123,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		const tokenData = await tokenRes.json() as { access_token?: string; error?: string; error_description?: string };
 		if (!tokenData.access_token) {
 			console.error("[github-auth] token exchange failed:", tokenData.error, tokenData.error_description);
-			throw redirect(`/settings?error=github_token_failed&detail=${encodeURIComponent(tokenData.error_description || tokenData.error || "unknown")}`);
+			throw redirect("/settings?error=github_token_failed");
 		}
 
 		// 第四步：用 access_token 获取用户信息
@@ -131,17 +163,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		).bind(githubId).first<{ id: string }>();
 
 		if (!user) {
-			// 检查是否已有同邮箱用户
+			// 检查是否已有同邮箱用户（防止邮箱绑定劫持）
 			const existing = await DB.prepare(
 				"SELECT id FROM users WHERE email = ?"
 			).bind(githubEmail).first<{ id: string }>();
 
 			if (existing) {
-				// 绑定 GitHub ID 到已有账户
+				// 邮箱已被占用：不绑定到已有账户，为 GitHub 创建独立用户
+				const uniqueEmail = `${githubUser.login}+${githubId}@github.local`;
+				const id = generateId();
+				const now = new Date().toISOString();
 				await DB.prepare(
-					"UPDATE users SET github_id = ?, verified = 1 WHERE id = ?"
-				).bind(githubId, existing.id).run();
-				user = existing;
+					"INSERT INTO users (id, email, password_hash, nickname, verified, github_id, created_at) VALUES (?, ?, '', ?, 1, ?, ?)"
+				).bind(id, uniqueEmail, nickname, githubId, now).run();
+				user = { id };
 			} else {
 				// 创建新用户
 				const id = generateId();
@@ -153,12 +188,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			}
 		}
 
-		// 第六步：签发 token 并跳转
+		// 第六步：签发 token 并跳转（清除 state cookie）
 		const token = await createUserToken(user.id, AUTH_SECRET);
 		return new Response(null, {
 			status: 302,
 			headers: {
-				"Set-Cookie": setUserCookie(token),
+				"Set-Cookie": `${setUserCookie(token)}, ${clearStateCookie()}`,
 				"Location": "/settings",
 			},
 		});
@@ -167,7 +202,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		if (err instanceof Response) {
 			throw err;
 		}
+		// 仅在服务端日志记录完整错误，不向客户端暴露内部详情
 		console.error("[github-auth] unexpected error:", err);
-		throw redirect(`/settings?error=github_failed&detail=${encodeURIComponent(String(err))}`);
+		throw redirect("/settings?error=github_failed");
 	}
 }

@@ -1,5 +1,7 @@
 import type { Route } from "./+types/api.ip";
 import type { IpInfo } from "~/lib/ip";
+import type { CfGeo } from "~/lib/types";
+import { getClientIp } from "~/lib/http";
 
 // ============================================================
 // IP 查询后端（/api/ip）
@@ -13,31 +15,6 @@ import type { IpInfo } from "~/lib/ip";
 // 说明：Location 直接使用 ipchaxun 返回的国家名（中文，不翻译），
 // 前端中文行用 countryCode 映射 + region/city 拼接，不做英文行。
 // ============================================================
-
-/** Cloudflare 请求自带的边缘地理信息（request.cf） */
-type CfGeo = {
-	asn?: number;
-	asOrganization?: string;
-	colo?: string;
-	country?: string;
-	region?: string;
-	regionCode?: string;
-	city?: string;
-	timezone?: string;
-	latitude?: string;
-	longitude?: string;
-	continent?: string;
-};
-
-/** 提取访问者的真实 IP：CF 直连头优先，本地开发时回退到代理头 */
-function getClientIp(request: Request): string {
-	return (
-		request.headers.get("CF-Connecting-IP") ||
-		request.headers.get("x-real-ip") ||
-		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-		""
-	);
-}
 
 /** 从 CF-Ray 头提取边缘节点代码（免费套餐也可用），形如 "7f2a...-HKG" → "HKG" */
 function coloFromRay(ray: string | null): string | undefined {

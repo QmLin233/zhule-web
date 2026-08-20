@@ -1,7 +1,9 @@
 /**
- * 简单的 HMAC-SHA256 token 认证工具。
- * 用于管理后台 API 的服务端鉴权。
+ * 管理后台认证模块。
+ * 使用 crypto.ts 提供的签名和常量时间比较。
  */
+
+import { sign, constantTimeCompare } from "./crypto";
 
 const TOKEN_NAME = "zhule_admin";
 const TOKEN_MAX_AGE = 60 * 60 * 24; // 24 小时
@@ -19,31 +21,11 @@ export async function verifyToken(token: string, secret: string): Promise<boolea
 	if (parts.length !== 2) return false;
 	const [payload, signature] = parts;
 
-	// 服务端过期校验：token 创建时间超过 TOKEN_MAX_AGE 秒则拒绝
 	const ts = Number(payload);
 	if (!Number.isFinite(ts) || Date.now() - ts > TOKEN_MAX_AGE * 1000) return false;
 
 	const expected = await sign(payload, secret);
-	// 常量时间比较
-	if (signature.length !== expected.length) return false;
-	let diff = 0;
-	for (let i = 0; i < signature.length; i++) {
-		diff |= signature.charCodeAt(i) ^ expected.charCodeAt(i);
-	}
-	return diff === 0;
-}
-
-/** HMAC-SHA256 签名 */
-async function sign(data: string, secret: string): Promise<string> {
-	const key = await crypto.subtle.importKey(
-		"raw",
-		new TextEncoder().encode(secret),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["sign"],
-	);
-	const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
-	return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+	return constantTimeCompare(signature, expected);
 }
 
 /** 从请求中提取并验证 cookie */

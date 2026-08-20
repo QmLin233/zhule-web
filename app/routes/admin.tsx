@@ -3,16 +3,7 @@ import { useState, useEffect } from "react";
 import { PageLayout } from "../components/PageLayout";
 import { useI18n } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
-
-interface Announcement {
-	id: string;
-	title: string;
-	content: string;
-	date: string;
-	important: boolean;
-	createdAt: string;
-	updatedAt: string;
-}
+import type { Rule } from "../lib/types";
 
 export function meta({}: Route.MetaArgs) {
 	return [{ title: "管理后台 | 逐乐" }];
@@ -24,7 +15,7 @@ export default function Admin() {
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [loginError, setLoginError] = useState<string | null>(null);
-	const [rules, setRules] = useState<Announcement[]>([]);
+	const [rules, setRules] = useState<Rule[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [showForm, setShowForm] = useState(false);
@@ -81,7 +72,7 @@ export default function Admin() {
 			setLoading(true);
 			setError(null);
 			const response = await fetch("/api/rules");
-			const data = await response.json() as { success: boolean; data: Announcement[]; error?: string };
+			const data = await response.json() as { success: boolean; data: Rule[]; error?: string };
 			
 			if (data.success) {
 				setRules(data.data);
@@ -201,7 +192,7 @@ export default function Admin() {
 	};
 
 	// 开始编辑
-	const startEdit = (rule: Announcement) => {
+	const startEdit = (rule: Rule) => {
 		setEditingId(rule.id);
 		setFormData({
 			title: rule.title,

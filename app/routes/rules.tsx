@@ -3,14 +3,7 @@ import { useState, useEffect } from "react";
 import { PageLayout } from "../components/PageLayout";
 import { useI18n } from "../lib/i18n";
 import { renderMarkdown } from "../lib/markdown";
-
-interface Rule {
-	id: string;
-	title: string;
-	content: string;
-	date: string;
-	important: boolean;
-}
+import type { Rule } from "../lib/types";
 
 export function meta({}: Route.MetaArgs) {
 	return [{ title: "公告 | 逐乐" }];

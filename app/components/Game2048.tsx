@@ -1,28 +1,17 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useI18n } from "../lib/i18n";
-
-const SIZE = 4;
-type Dir = "left" | "right" | "up" | "down";
-
-/** Mulberry32 种子随机数生成器（客户端+服务端共用，保证回放一致） */
-function mulberry32(seed: number): () => number {
-	return () => {
-		seed |= 0;
-		seed = (seed + 0x6d2b79f5) | 0;
-		let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
-
-/** 每个方块带唯一 id 与坐标（参考原版 gabrielecirulli/2048 的 Tile） */
-type Tile = {
-	id: number;
-	x: number;
-	y: number;
-	value: number;
-};
-type Board = (Tile | null)[][];
+import {
+	mulberry32,
+	emptyBoard,
+	addRandomTile,
+	doMove,
+	movesAvailable,
+	resetUid,
+	SIZE,
+	type Dir,
+	type Board,
+	type Tile,
+} from "../lib/game-engine";
 
 type State = {
 	board: Board;
@@ -32,9 +21,7 @@ type State = {
 	merged: number[];
 	added: number[];
 	moveDist: number;
-	/** 游戏种子（服务端回放用） */
 	seed: number;
-	/** 移动录像（方向序列） */
 	moves: Dir[];
 };
 
@@ -43,162 +30,23 @@ type Action =
 	| { type: "restart" }
 	| { type: "boot" };
 
-let uid = 1;
-const nextId = () => uid++;
-/** 当前游戏的种子随机数（由 reducer 外部设置） */
 let gameRng: () => number = Math.random;
 
-/** 四个方向的移动向量 */
-const VECTOR: Record<Dir, { x: number; y: number }> = {
-	up: { x: 0, y: -1 },
-	right: { x: 1, y: 0 },
-	down: { x: 0, y: 1 },
-	left: { x: -1, y: 0 },
-};
-
-function emptyBoard(): Board {
-	return Array.from({ length: SIZE }, () => Array<Tile | null>(SIZE).fill(null));
-}
-
-function cloneBoard(board: Board): Board {
-	return board.map((row) => row.slice());
-}
-
-function withinBounds(p: { x: number; y: number }): boolean {
-	return p.x >= 0 && p.x < SIZE && p.y >= 0 && p.y < SIZE;
-}
-
-/** 随机取一个空格（使用种子随机数） */
-function randomAvailableCell(board: Board): { x: number; y: number } | null {
-	const empty: Array<{ x: number; y: number }> = [];
-	board.forEach((row, y) =>
-		row.forEach((tile, x) => {
-			if (!tile) empty.push({ x, y });
-		}),
-	);
-	return empty.length ? empty[Math.floor(gameRng() * empty.length)] : null;
-}
-
-/** 在随机空格生成 2（90%）或 4（10%），返回新棋盘与新增方块 id */
-function addRandomTile(board: Board): { board: Board; addedId: number } {
-	const cell = randomAvailableCell(board);
-	if (!cell) return { board, addedId: 0 };
-	const id = nextId();
-	const next = cloneBoard(board);
-	next[cell.y][cell.x] = { id, x: cell.x, y: cell.y, value: gameRng() < 0.9 ? 2 : 4 };
-	return { board: next, addedId: id };
-}
-
-/** 构建遍历顺序：从移动方向的最远处开始（原版 buildTraversals） */
-function buildTraversals(vector: { x: number; y: number }): { x: number[]; y: number[] } {
-	const xs = [0, 1, 2, 3];
-	const ys = [0, 1, 2, 3];
-	if (vector.x === 1) xs.reverse();
-	if (vector.y === 1) ys.reverse();
-	return { x: xs, y: ys };
-}
-
-/** 从 cell 沿向量找到最远可达位置（原版 findFarthestPosition） */
-function findFarthestPosition(
-	board: Board,
-	cell: { x: number; y: number },
-	vector: { x: number; y: number },
-): { farthest: { x: number; y: number }; next: { x: number; y: number } } {
-	let farthest = cell;
-	let next = { x: cell.x + vector.x, y: cell.y + vector.y };
-	while (withinBounds(next) && !board[next.y][next.x]) {
-		farthest = next;
-		next = { x: next.x + vector.x, y: next.y + vector.y };
-	}
-	return { farthest, next };
-}
-
-/** 按方向移动棋盘（参考原版 GameManager.move 的向量法） */
-function move(
-	board: Board,
-	dir: Dir,
-): {
-	board: Board;
-	moved: boolean;
-	gained: number;
-	merged: number[];
-	maxDist: number;
-} {
-	const vector = VECTOR[dir];
-	const traversals = buildTraversals(vector);
-	const next = cloneBoard(board);
-	let moved = false;
-	let gained = 0;
-	let maxDist = 0;
-	const merged: number[] = [];
-
-	traversals.x.forEach((x) => {
-		traversals.y.forEach((y) => {
-			const cell = { x, y };
-			const tile = next[y][x];
-			if (!tile) return;
-
-			const { farthest, next: target } = findFarthestPosition(next, cell, vector);
-			const other = withinBounds(target) ? next[target.y][target.x] : null;
-			let landed = farthest;
-
-			// 可与目标格合并（同值且该目标本轮尚未被合并过）
-			if (other && other.value === tile.value && !merged.includes(other.id)) {
-				next[y][x] = null;
-				next[target.y][target.x] = {
-					id: tile.id,
-					x: target.x,
-					y: target.y,
-					value: tile.value * 2,
-				};
-				merged.push(tile.id);
-				gained += tile.value * 2;
-				landed = target;
-			} else {
-				// 滑到最远位置
-				next[y][x] = null;
-				next[farthest.y][farthest.x] = { ...tile, x: farthest.x, y: farthest.y };
-			}
-
-			// 记录本次位移（格数），长距离用更久过渡避免“飞/坠”感
-			const dist = Math.abs(landed.x - cell.x) + Math.abs(landed.y - cell.y);
-			if (dist > maxDist) maxDist = dist;
-			if (landed.x !== cell.x || landed.y !== cell.y) moved = true;
-		});
-	});
-
-	return { board: next, moved, gained, merged, maxDist };
-}
-
-/** 是否还有可移动 / 可合并的格子 */
-function movesAvailable(board: Board): boolean {
-	for (let y = 0; y < SIZE; y++) {
-		for (let x = 0; x < SIZE; x++) {
-			const v = board[y][x]?.value ?? 0;
-			if (v === 0) return true;
-			if (x + 1 < SIZE && v === (board[y][x + 1]?.value ?? 0)) return true;
-			if (y + 1 < SIZE && v === (board[y + 1][x]?.value ?? 0)) return true;
-		}
-	}
-	return false;
-}
-
-/** 生成初始两枚随机方块（仅在客户端调用，避免 SSR 水合不一致） */
 function initialTiles(): State {
 	const seed = Date.now();
 	gameRng = mulberry32(seed);
-	uid = 1;
+	resetUid();
 	let board = emptyBoard();
 	const added: number[] = [];
 	for (let i = 0; i < 2; i++) {
-		const r = addRandomTile(board);
+		const r = addRandomTile(board, gameRng);
 		board = r.board;
 		added.push(r.addedId);
 	}
 	return { board, score: 0, over: false, won: false, merged: [], added, moveDist: 0, seed, moves: [] };
 }
 
-/** SSR 与客户端首帧共用确定性空棋盘；随机方块在挂载后由 boot 生成 */
+/** SSR 空棋盘 */
 function initState(): State {
 	return {
 		board: emptyBoard(),
@@ -216,19 +64,35 @@ function initState(): State {
 function reducer(state: State, action: Action): State {
 	if (action.type === "restart" || action.type === "boot") return initialTiles();
 
-	const { board: movedBoard, moved: didMove, gained, merged, maxDist } = move(
-		state.board,
-		action.dir,
-	);
-	if (!didMove) return state;
+	const before = new Map<number, { x: number; y: number }>();
+	for (const row of state.board) {
+		for (const tile of row) {
+			if (tile) before.set(tile.id, { x: tile.x, y: tile.y });
+		}
+	}
 
-	const { board, addedId } = addRandomTile(movedBoard);
+	const result = doMove(state.board, action.dir);
+	if (!result.moved) return state;
+
+	let maxDist = 0;
+	for (const row of result.board) {
+		for (const tile of row) {
+			if (!tile) continue;
+			const prev = before.get(tile.id);
+			if (prev) {
+				const dist = Math.abs(tile.x - prev.x) + Math.abs(tile.y - prev.y);
+				if (dist > maxDist) maxDist = dist;
+			}
+		}
+	}
+
+	const { board, addedId } = addRandomTile(result.board, gameRng);
 	return {
 		board,
-		score: state.score + gained,
+		score: state.score + result.gained,
 		over: !movesAvailable(board),
 		won: state.won || board.some((row) => row.some((t) => t?.value === 2048)),
-		merged,
+		merged: result.mergedIds,
 		added: [addedId],
 		moveDist: maxDist,
 		seed: state.seed,
