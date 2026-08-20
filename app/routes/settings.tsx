@@ -368,8 +368,8 @@ export default function Settings() {
 					) : (
 						/* 未登录：登录/注册表单 */
 						<div>
-							{/* 切换标签 */}
-							<div className="mb-4 flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800">
+							{/* 切换标签 — 暂时隐藏，仅保留 GitHub 登录 */}
+							<div className="mb-4 hidden rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800">
 								<button
 									type="button"
 									onClick={() => { setMode("login"); resetForm(); }}
@@ -394,7 +394,7 @@ export default function Settings() {
 								</button>
 							</div>
 
-							<form onSubmit={mode === "login" ? handleLogin : handleRegister} className="space-y-3">
+							<form onSubmit={mode === "login" ? handleLogin : handleRegister} className="hidden space-y-3">
 								<input
 									type="email"
 									value={email}
@@ -481,7 +481,7 @@ export default function Settings() {
 							</form>
 
 							{/* GitHub 登录 */}
-							<div className="mt-3 flex items-center gap-3">
+							<div className="mt-3 hidden items-center gap-3">
 								<div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
 								<span className="text-xs text-gray-400">OR</span>
 								<div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
