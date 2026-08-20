@@ -42,10 +42,17 @@ function generateId(): string {
 // GET /api/auth/github?code=xxx — 回调，用 code 换 token，获取用户信息
 export async function loader({ request, context }: Route.LoaderArgs) {
 	try {
-		const { DB, AUTH_SECRET, GITHUB_CLIENT_ID: clientId, GITHUB_CLIENT_SECRET: clientSecret } = context.cloudflare.env;
+		const rawId = context.cloudflare.env.GITHUB_CLIENT_ID;
+		const rawSecret = context.cloudflare.env.GITHUB_CLIENT_SECRET;
+		const clientId = rawId?.trim();
+		const clientSecret = rawSecret?.trim();
+		const { DB, AUTH_SECRET } = context.cloudflare.env;
 
 		const url = new URL(request.url);
 		const code = url.searchParams.get("code");
+
+		// 调试日志：检查 client_id 前缀（不泄露 secret）
+		console.log("[github-auth] callback hit, client_id prefix:", clientId?.substring(0, 6), "client_id length:", clientId?.length, "secret length:", clientSecret?.length);
 
 		// 第一步：跳转到 GitHub 授权页
 		if (!code) {
@@ -59,6 +66,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 		// 第二步：预检必要配置
 		if (!clientId || !clientSecret) {
+			console.error("[github-auth] missing config, clientId:", !!clientId, "clientSecret:", !!clientSecret);
 			throw redirect("/settings?error=github_not_configured");
 		}
 		if (!AUTH_SECRET) {
@@ -68,18 +76,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			throw redirect("/settings?error=db_missing");
 		}
 
-		// 第三步：用 code 换 access_token（使用 form-urlencoded，GitHub 规范格式）
+		// 第三步：用 code 换 access_token
+		const bodyStr = `client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&code=${encodeURIComponent(code)}`;
+		console.log("[github-auth] exchanging code, client_id used:", clientId);
 		const tokenRes = await fetch(GITHUB_TOKEN, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/x-www-form-urlencoded",
 				"Accept": "application/json",
 			},
-			body: new URLSearchParams({
-				client_id: clientId,
-				client_secret: clientSecret,
-				code,
-			}).toString(),
+			body: bodyStr,
 		});
 
 		const tokenData = await tokenRes.json() as { access_token?: string; error?: string; error_description?: string };
