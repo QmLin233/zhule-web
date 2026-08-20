@@ -126,6 +126,13 @@ const resources: Record<Lang, Translations> = {
     "user.backToLogin": "返回登录",
     "user.passwordResetSuccess": "密码重置成功",
     "user.loginWithGithub": "使用 GitHub 登录",
+    "user.errors.github_not_configured": "GitHub 登录未正确配置",
+    "user.errors.auth_secret_missing": "服务端认证密钥未配置",
+    "user.errors.db_missing": "数据库未配置",
+    "user.errors.github_token_failed": "GitHub 授权码无效或已过期",
+    "user.errors.github_user_failed": "无法获取 GitHub 用户信息",
+    "user.errors.github_invalid_user": "GitHub 返回的用户数据无效",
+    "user.errors.github_failed": "GitHub 登录失败，请重试",
 
     // 游戏成绩
     "game.scoreSubmitted": "成绩已提交",
@@ -251,6 +258,13 @@ const resources: Record<Lang, Translations> = {
     "user.backToLogin": "Back to Login",
     "user.passwordResetSuccess": "Password reset successfully",
     "user.loginWithGithub": "Login with GitHub",
+    "user.errors.github_not_configured": "GitHub login is not properly configured",
+    "user.errors.auth_secret_missing": "Server auth secret is missing",
+    "user.errors.db_missing": "Database is not configured",
+    "user.errors.github_token_failed": "GitHub authorization code is invalid or expired",
+    "user.errors.github_user_failed": "Failed to fetch GitHub user info",
+    "user.errors.github_invalid_user": "Invalid user data from GitHub",
+    "user.errors.github_failed": "GitHub login failed, please try again",
 
     // Game scores
     "game.scoreSubmitted": "Score submitted",

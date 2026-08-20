@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import type { Route } from "./+types/settings";
 import { PageLayout } from "../components/PageLayout";
 import { pageMeta } from "../lib/meta";
@@ -18,6 +19,7 @@ interface UserProfile {
 
 export default function Settings() {
 	const { lang, setLang, t } = useI18n();
+	const [searchParams] = useSearchParams();
 	const [user, setUser] = useState<UserProfile | null>(null);
 	const [userLoading, setUserLoading] = useState(true);
 	const [mode, setMode] = useState<"login" | "register">("login");
@@ -34,6 +36,20 @@ export default function Settings() {
 	const [regVerifyCode, setRegVerifyCode] = useState("");
 	const [forgotMode, setForgotMode] = useState(false);
 	const [newPassword, setNewPassword] = useState("");
+
+	// 读取 URL 中的错误参数（GitHub 登录失败回跳）
+	useEffect(() => {
+		const urlError = searchParams.get("error");
+		if (urlError) {
+			const detail = searchParams.get("detail");
+			const msg = detail
+				? `${t(`user.errors.${urlError}`) || urlError}: ${detail}`
+				: t(`user.errors.${urlError}`) || urlError;
+			setAuthError(msg);
+			// 清除 URL 参数，避免刷新重复显示
+			window.history.replaceState(null, "", "/settings");
+		}
+	}, [searchParams, t]);
 
 	// 检查登录状态
 	useEffect(() => {
@@ -103,9 +119,13 @@ export default function Settings() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email }),
 			});
-			const data = await res.json() as { success: boolean; error?: string };
-			if (data.success) setRegCodeSent(true);
-			else setAuthError(data.error);
+			const data = await res.json() as { success: boolean; error?: string; message?: string };
+			if (data.success) {
+				setRegCodeSent(true);
+				if (data.message) setAuthSuccess(data.message);
+			} else {
+				setAuthError(data.error);
+			}
 		} catch {
 			setAuthError(t("admin.networkError"));
 		}
@@ -122,9 +142,13 @@ export default function Settings() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email, action: "reset" }),
 			});
-			const data = await res.json() as { success: boolean; error?: string };
-			if (data.success) setCodeSent(true);
-			else setAuthError(data.error);
+			const data = await res.json() as { success: boolean; error?: string; message?: string };
+			if (data.success) {
+				setCodeSent(true);
+				if (data.message) setAuthSuccess(data.message);
+			} else {
+				setAuthError(data.error);
+			}
 		} catch {
 			setAuthError(t("admin.networkError"));
 		}
@@ -204,6 +228,7 @@ export default function Settings() {
 			if (data.success) {
 				setCodeSent(true);
 				setVerifyError(null);
+				if (data.message) setAuthSuccess(data.message);
 			} else {
 				setVerifyError(data.error || data.message);
 			}

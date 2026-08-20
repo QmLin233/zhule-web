@@ -1,3 +1,4 @@
+import { redirect } from "react-router";
 import type { Route } from "./+types/api.auth.github";
 
 const GITHUB_AUTHORIZE = "https://github.com/login/oauth/authorize";
@@ -40,46 +41,54 @@ function generateId(): string {
 // GET /api/auth/github — 跳转到 GitHub 授权页
 // GET /api/auth/github?code=xxx — 回调，用 code 换 token，获取用户信息
 export async function loader({ request, context }: Route.LoaderArgs) {
-	const { DB, AUTH_SECRET, GITHUB_CLIENT_ID: clientId, GITHUB_CLIENT_SECRET: clientSecret } = context.cloudflare.env;
-
-	const url = new URL(request.url);
-	const code = url.searchParams.get("code");
-
-	// 第一步：跳转到 GitHub 授权页
-	if (!code) {
-		if (!clientId) {
-			return Response.json({ success: false, error: "GitHub 登录未配置" }, { status: 500 });
-		}
-		const redirectUri = `${url.origin}/api/auth/github`;
-		const githubUrl = `${GITHUB_AUTHORIZE}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user`;
-		return Response.redirect(githubUrl, 302);
-	}
-
-	// 第二步：用 code 换 access_token
-	if (!clientId || !clientSecret) {
-		return Response.redirect("/settings?error=github_not_configured", 302);
-	}
-
 	try {
+		const { DB, AUTH_SECRET, GITHUB_CLIENT_ID: clientId, GITHUB_CLIENT_SECRET: clientSecret } = context.cloudflare.env;
+
+		const url = new URL(request.url);
+		const code = url.searchParams.get("code");
+
+		// 第一步：跳转到 GitHub 授权页
+		if (!code) {
+			if (!clientId) {
+				return Response.json({ success: false, error: "GitHub 登录未配置" }, { status: 500 });
+			}
+			const redirectUri = `${url.origin}/api/auth/github`;
+			const githubUrl = `${GITHUB_AUTHORIZE}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user`;
+			return Response.redirect(githubUrl, 302);
+		}
+
+		// 第二步：预检必要配置
+		if (!clientId || !clientSecret) {
+			throw redirect("/settings?error=github_not_configured");
+		}
+		if (!AUTH_SECRET) {
+			throw redirect("/settings?error=auth_secret_missing");
+		}
+		if (!DB) {
+			throw redirect("/settings?error=db_missing");
+		}
+
+		// 第三步：用 code 换 access_token（使用 form-urlencoded，GitHub 规范格式）
 		const tokenRes = await fetch(GITHUB_TOKEN, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json",
+				"Content-Type": "application/x-www-form-urlencoded",
 				"Accept": "application/json",
 			},
-			body: JSON.stringify({
+			body: new URLSearchParams({
 				client_id: clientId,
 				client_secret: clientSecret,
 				code,
-			}),
+			}).toString(),
 		});
 
-		const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+		const tokenData = await tokenRes.json() as { access_token?: string; error?: string; error_description?: string };
 		if (!tokenData.access_token) {
-			return Response.redirect("/settings?error=github_token_failed", 302);
+			console.error("[github-auth] token exchange failed:", tokenData.error, tokenData.error_description);
+			throw redirect(`/settings?error=github_token_failed&detail=${encodeURIComponent(tokenData.error_description || tokenData.error || "unknown")}`);
 		}
 
-		// 第三步：用 access_token 获取用户信息
+		// 第四步：用 access_token 获取用户信息
 		const userRes = await fetch(GITHUB_USER_API, {
 			headers: {
 				"Authorization": `Bearer ${tokenData.access_token}`,
@@ -87,6 +96,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 				"User-Agent": "zhule-web",
 			},
 		});
+
+		if (!userRes.ok) {
+			console.error("[github-auth] user API failed:", userRes.status, await userRes.text());
+			throw redirect("/settings?error=github_user_failed");
+		}
 
 		const githubUser = await userRes.json() as {
 			id: number;
@@ -96,11 +110,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			avatar_url?: string;
 		};
 
+		if (!githubUser.id) {
+			console.error("[github-auth] invalid user data:", githubUser);
+			throw redirect("/settings?error=github_invalid_user");
+		}
+
 		const githubId = String(githubUser.id);
 		const githubEmail = githubUser.email || `${githubUser.login}@github.local`;
 		const nickname = githubUser.name || githubUser.login;
 
-		// 第四步：查找或创建用户
+		// 第五步：查找或创建用户
 		let user = await DB.prepare(
 			"SELECT id FROM users WHERE github_id = ?"
 		).bind(githubId).first<{ id: string }>();
@@ -128,7 +147,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			}
 		}
 
-		// 第五步：签发 token 并跳转
+		// 第六步：签发 token 并跳转
 		const token = await createUserToken(user.id, AUTH_SECRET);
 		return new Response(null, {
 			status: 302,
@@ -137,7 +156,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 				"Location": "/settings",
 			},
 		});
-	} catch {
-		return Response.redirect("/settings?error=github_failed", 302);
+	} catch (err) {
+		// 如果是 React Router 的 redirect（Response 实例），直接抛出让框架处理
+		if (err instanceof Response) {
+			throw err;
+		}
+		console.error("[github-auth] unexpected error:", err);
+		throw redirect(`/settings?error=github_failed&detail=${encodeURIComponent(String(err))}`);
 	}
 }
