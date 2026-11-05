@@ -84,7 +84,7 @@ export default function Ip() {
 	const [myState, setMyState] = useState<"loading" | "success" | "error">("loading");
 	const [myError, setMyError] = useState("");
 	const [latency, setLatency] = useState<number | null>(null);
-	const [myIpv6, setMyIpv6] = useState<string | null>(null);
+	const [myIpv4, setMyIpv4] = useState<string | null>(null);
 	const { t } = useI18n();
 
 	// 进入页面自动获取我的 IP
@@ -121,25 +121,48 @@ export default function Ip() {
 		};
 	}, []);
 
-	// 客户端检测访问者是否有 IPv6：请求 IPv6-only 回显，成功才有（失败即无，不显示）
+	// 客户端探测 IPv4：双栈网络下 /api/ip 可能看到 IPv6，页面统一只展示 IPv4
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
 			try {
-				const res = await fetch("https://api6.ipify.org", {
+				const res = await fetch("https://api.ipify.org", {
 					signal: AbortSignal.timeout(4000),
 				});
 				if (!res.ok) return;
-				const ipv6 = (await res.text()).trim();
-				if (!cancelled && ipv6) setMyIpv6(ipv6);
+				const ipv4 = (await res.text()).trim();
+				if (!cancelled && /^(\d{1,3}\.){3}\d{1,3}$/.test(ipv4)) setMyIpv4(ipv4);
 			} catch {
-				// 无 IPv6 或网络异常：保持不显示
+				// 无 IPv4 或网络异常：保留接口返回的地址
 			}
 		})();
 		return () => {
 			cancelled = true;
 		};
 	}, []);
+
+	// 探测到的 IPv4 与接口返回不一致时，按 IPv4 重新查询归属地/运营商
+	useEffect(() => {
+		if (!myIp || !myIpv4 || myIp.ip === myIpv4) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const data = await fetchIpInfo(
+					`/api/ip?ip=${encodeURIComponent(myIpv4)}`,
+					t("ip.loadFailed"),
+				);
+				if (!cancelled) {
+					setMyIp(data);
+					setMyState("success");
+				}
+			} catch {
+				// 查询失败时保留原结果
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [myIp, myIpv4, t]);
 
 	return (
 		<PageLayout title={t("ip.title")}>
@@ -172,13 +195,8 @@ export default function Ip() {
 						{myState === "success" && myIp && (
 							<div className="mt-4">
 								<p className="break-all text-3xl font-semibold tracking-widest sm:text-4xl">
-									{myIp.ip || "0.0.0.0"}
+									{myIpv4 || myIp.ip || "0.0.0.0"}
 								</p>
-								{myIpv6 && (
-									<p className="mt-1.5 break-all text-3xl font-semibold tracking-widest sm:text-4xl">
-										{myIpv6}
-									</p>
-								)}
 								<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
 									<InfoBlock
 										value={myIp.ip ? locationZh(myIp) : undefined}

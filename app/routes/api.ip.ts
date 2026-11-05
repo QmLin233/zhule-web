@@ -315,7 +315,9 @@ async function lookupByIpchaxun(ip: string, apiKey: string): Promise<IpInfo> {
 export async function loader({ request, context }: Route.LoaderArgs) {
 	// 原始 request.cf 在入口 fetch 已捕获并注入 context（见 workers/app.ts）
 	const cf = context.cf as CfGeo | undefined;
-	const ip = getClientIp(request);
+	// 显式 ?ip= 查询（页面用它查客户端探测到的 IPv4），否则取访客 IP
+	const requested = new URL(request.url).searchParams.get("ip");
+	const ip = requested && isValidIp(requested) ? requested : getClientIp(request);
 	const apiKey = context.cloudflare.env.IPCHAXUN_API_KEY;
 
 	// 出口 IP（边缘节点出口地址，IPv4 优先、无则 IPv6，按机房缓存 1h，失败则省略）
@@ -343,6 +345,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		const info = await lookupByIpApi(ip);
 		return Response.json({ ...info, egressIp });
 	} catch {
+		// 查询他人 IP 时不能用边缘数据顶替，否则会把访客的归属地当成目标 IP 的
+		if (ip !== getClientIp(request)) {
+			return Response.json(
+				{ ip, query: ip, error: "查询失败 · Lookup failed" },
+				{ status: 502 },
+			);
+		}
 		const info = fromCloudflareEdge(
 			ip,
 			cf,
