@@ -59,6 +59,7 @@ const resources: Record<Lang, Translations> = {
     "ip.loading": "正在获取…",
     "ip.loadFailed": "获取失败",
     "ip.none": "无",
+    "ip.noIpv4": "未检测到 IPv4 地址",
     
     // 更多页面
     "more.title": "更多",
@@ -213,6 +214,7 @@ const resources: Record<Lang, Translations> = {
     "ip.loading": "Loading…",
     "ip.loadFailed": "Load failed",
     "ip.none": "None",
+    "ip.noIpv4": "No IPv4 address detected",
     
     // Image host page
     "imageHost.title": "Image Host",

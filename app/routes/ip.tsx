@@ -79,6 +79,34 @@ async function measureLatency(samples = 3): Promise<number> {
 	return Number.isFinite(best) ? Math.round(best) : 0;
 }
 
+/** 是否为点分十进制 IPv4 */
+function isIpv4(value: string): boolean {
+	return /^(\d{1,3}\.){3}\d{1,3}$/.test(value);
+}
+
+/** IPv4 回显服务：IPv4-only 域名，按可达性顺序依次尝试 */
+const IPV4_ECHO_SOURCES = [
+	"https://ipv4.icanhazip.com",
+	"https://v4.ident.me",
+	"https://api-ipv4.ip.sb/ip",
+];
+
+/** 通过 IPv4-only 回显服务探测访问者的 IPv4 地址，全部失败返回 null */
+async function detectIpv4(): Promise<string | null> {
+	for (const url of IPV4_ECHO_SOURCES) {
+		try {
+			const res = await fetch(url, { signal: AbortSignal.timeout(4000), cache: "no-store" });
+			if (!res.ok) continue;
+			const text = (await res.text()).trim();
+			if (isIpv4(text)) return text;
+		} catch {
+			// 该源不可用，继续尝试下一个
+		}
+	}
+	return null;
+}
+
+
 export default function Ip() {
 	const [myIp, setMyIp] = useState<IpInfo | null>(null);
 	const [myState, setMyState] = useState<"loading" | "success" | "error">("loading");
@@ -125,16 +153,8 @@ export default function Ip() {
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
-			try {
-				const res = await fetch("https://api.ipify.org", {
-					signal: AbortSignal.timeout(4000),
-				});
-				if (!res.ok) return;
-				const ipv4 = (await res.text()).trim();
-				if (!cancelled && /^(\d{1,3}\.){3}\d{1,3}$/.test(ipv4)) setMyIpv4(ipv4);
-			} catch {
-				// 无 IPv4 或网络异常：保留接口返回的地址
-			}
+			const ipv4 = await detectIpv4();
+			if (!cancelled && ipv4) setMyIpv4(ipv4);
 		})();
 		return () => {
 			cancelled = true;
@@ -195,7 +215,7 @@ export default function Ip() {
 						{myState === "success" && myIp && (
 							<div className="mt-4">
 								<p className="break-all text-3xl font-semibold tracking-widest sm:text-4xl">
-									{myIpv4 || myIp.ip || "0.0.0.0"}
+									{myIpv4 || (isIpv4(myIp.ip) ? myIp.ip : t("ip.noIpv4"))}
 								</p>
 								<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
 									<InfoBlock

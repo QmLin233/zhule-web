@@ -270,8 +270,37 @@ export default function Video() {
 	}
 
 	/** 通过服务端代理触发下载（B 站 CDN 有防盗链） */
-	function download(target: string, filename: string, type: "video" | "audio" | "image") {
+	/**
+	 * 浏览器直连下载：B 站 CDN 返回 Access-Control-Allow-Origin: *，
+	 * 客户端可以直接取流并保存，不经过本站中转。
+	 * @param url 直链地址
+	 * @param filename 保存的文件名
+	 * @returns 是否成功
+	 */
+	async function saveDirect(url: string, filename: string): Promise<boolean> {
+		try {
+			const res = await fetch(url);
+			if (!res.ok) return false;
+			const blob = await res.blob();
+			if (blob.size === 0) return false;
+			const href = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = href;
+			link.download = filename;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			setTimeout(() => URL.revokeObjectURL(href), 60_000);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	async function download(target: string, filename: string, type: "video" | "audio" | "image") {
 		if (!target) return;
+		// 优先客户端直连下载；被 CORS/防盗链拦截时再回退到服务端代理
+		if (await saveDirect(target, filename)) return;
 		const url = `/api/video/download?url=${encodeURIComponent(target)}&name=${encodeURIComponent(filename)}&type=${type}`;
 		const link = document.createElement("a");
 		link.href = url;
@@ -452,7 +481,7 @@ export default function Video() {
 							<button
 								type="button"
 								onClick={() =>
-									download(
+									void download(
 										info.playUrl,
 										`${safeName(info.title) || info.bvid}-${info.quality}.mp4`,
 										"video",
@@ -466,7 +495,7 @@ export default function Video() {
 								<button
 									type="button"
 									onClick={() =>
-										download(
+										void download(
 											info.audioUrl,
 											`${safeName(info.title) || info.bvid}-audio-${info.audioQuality}.m4a`,
 											"audio",
@@ -479,7 +508,7 @@ export default function Video() {
 							)}
 							<button
 								type="button"
-								onClick={() => download(info.cover, `${safeName(info.title) || info.bvid}-cover.jpg`, "image")}
+								onClick={() => void download(info.cover, `${safeName(info.title) || info.bvid}-cover.jpg`, "image")}
 								className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 							>
 								{t("video.downloadCover")}
