@@ -19,6 +19,29 @@ const features = [
 			</svg>
 		),
 	},
+	{
+		to: "/qr",
+		labelKey: "qr.title",
+		icon: (
+			<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+				<rect x="3" y="3" width="7" height="7" rx="1" />
+				<rect x="14" y="3" width="7" height="7" rx="1" />
+				<rect x="3" y="14" width="7" height="7" rx="1" />
+				<path d="M14 14h3v3h-3z" />
+				<path d="M20 17v4h-4" />
+			</svg>
+		),
+	},
+	{
+		to: "/video",
+		labelKey: "video.title",
+		icon: (
+			<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+				<rect x="2.5" y="5" width="19" height="14" rx="3" />
+				<path d="M10 9.5l5 2.5-5 2.5z" />
+			</svg>
+		),
+	},
 ];
 
 export default function More() {
